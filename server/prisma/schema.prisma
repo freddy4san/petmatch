@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  pets      Pet[]
+}
+
+model Pet {
+  id            String  @id @default(cuid())
+  name          String
+  age           Int
+  breed         String
+  imageUrl      String?
+  ownerId       String
+  owner         User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sentLikes     Like[]  @relation("SentLikes")
+  receivedLikes Like[]  @relation("ReceivedLikes")
+  matchesAsPet1 Match[] @relation("MatchPet1")
+  matchesAsPet2 Match[] @relation("MatchPet2")
+
+  @@index([ownerId])
+}
+
+model Like {
+  id        String @id @default(cuid())
+  fromPetId String
+  toPetId   String
+  fromPet   Pet    @relation("SentLikes", fields: [fromPetId], references: [id], onDelete: Cascade)
+  toPet     Pet    @relation("ReceivedLikes", fields: [toPetId], references: [id], onDelete: Cascade)
+
+  @@unique([fromPetId, toPetId])
+  @@index([fromPetId])
+  @@index([toPetId])
+  @@map("likes")
+}
+
+model Match {
+  id        String   @id @default(cuid())
+  pet1Id    String
+  pet2Id    String
+  createdAt DateTime @default(now())
+  pet1      Pet      @relation("MatchPet1", fields: [pet1Id], references: [id], onDelete: Cascade)
+  pet2      Pet      @relation("MatchPet2", fields: [pet2Id], references: [id], onDelete: Cascade)
+
+  @@unique([pet1Id, pet2Id])
+  @@index([pet1Id])
+  @@index([pet2Id])
+  @@map("matches")
+}
