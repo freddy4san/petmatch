@@ -9,19 +9,32 @@ function sanitizeUser(user) {
   return {
     id: user.id,
     email: user.email,
+    fullName: user.fullName,
+    phoneNumber: user.phoneNumber,
     createdAt: user.createdAt,
   };
 }
 
-async function registerUser({ email, password }) {
+async function registerUser({ email, fullName, password, phoneNumber }) {
   const normalizedEmail = email.trim().toLowerCase();
+  const normalizedFullName = fullName.trim();
+  const normalizedPhoneNumber = phoneNumber.trim();
 
-  const existingUser = await prisma.user.findUnique({
-    where: { email: normalizedEmail },
-  });
+  const [existingEmailUser, existingPhoneUser] = await Promise.all([
+    prisma.user.findUnique({
+      where: { email: normalizedEmail },
+    }),
+    prisma.user.findUnique({
+      where: { phoneNumber: normalizedPhoneNumber },
+    }),
+  ]);
 
-  if (existingUser) {
+  if (existingEmailUser) {
     throw createHttpError(400, "User already exists");
+  }
+
+  if (existingPhoneUser) {
+    throw createHttpError(400, "Phone number already exists");
   }
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
@@ -29,7 +42,9 @@ async function registerUser({ email, password }) {
   const user = await prisma.user.create({
     data: {
       email: normalizedEmail,
+      fullName: normalizedFullName,
       password: hashedPassword,
+      phoneNumber: normalizedPhoneNumber,
     },
   });
 
