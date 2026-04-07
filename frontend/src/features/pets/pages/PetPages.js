@@ -43,6 +43,7 @@ export function PetSetupPage({ onNavigate }) {
 
 export function ProfilePage({ app }) {
   const {
+    authSession,
     handleLogout,
     likedPets,
     matches,
@@ -54,6 +55,8 @@ export function ProfilePage({ app }) {
     theme,
     userPets
   } = app;
+  const displayName = getDisplayName(authSession);
+  const firstName = getFirstName(displayName);
 
   return (
     <div className="bg-gray-50 flex flex-col pb-4">
@@ -67,10 +70,10 @@ export function ProfilePage({ app }) {
         </div>
         <div className="flex items-center gap-4">
           <div className="relative flex-shrink-0">
-            <img src="https://picsum.photos/150/150" alt="Bhavana" className="w-16 h-16 bg-white rounded-full overflow-hidden border-2 border-white object-cover" />
+            <img src="https://picsum.photos/150/150" alt={displayName} className="w-16 h-16 bg-white rounded-full overflow-hidden border-2 border-white object-cover" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold">Bhavana Pandalaneni</h2>
+            <h2 className="text-xl font-bold">{displayName}</h2>
             <p className="text-sm opacity-90">📍 Melbourne, VIC</p>
             <div className="flex gap-6 mt-2">
               <div><span className="font-bold text-lg">{matches.length}</span> <span className="text-xs opacity-90">Matches</span></div>
@@ -108,7 +111,7 @@ export function ProfilePage({ app }) {
 
         <div className="bg-white rounded-3xl p-5 mb-6 shadow-sm">
           <h3 className="font-bold text-gray-900 mb-4">About Me</h3>
-          <p className="text-gray-600 leading-relaxed">Hi! I'm Bhavana, a passionate pet lover from Melbourne. I have two wonderful pets - Rocky the raccoon and Martin the Maine Coon. I love finding playmates for them and connecting with other pet owners. Let's arrange some fun playdates! 🐾</p>
+          <p className="text-gray-600 leading-relaxed">Hi! I'm {firstName}, a passionate pet lover from Melbourne. I have two wonderful pets - Rocky the raccoon and Martin the Maine Coon. I love finding playmates for them and connecting with other pet owners. Let's arrange some fun playdates! 🐾</p>
           <div className="mt-4">
             <h4 className="font-semibold text-gray-900 mb-2">Interests</h4>
             <div className="flex flex-wrap gap-2">
@@ -234,6 +237,26 @@ export function ProfilePage({ app }) {
       </div>
     </div>
   );
+}
+
+function getDisplayName(authSession) {
+  const fullName = authSession?.user?.fullName?.trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  const email = authSession?.user?.email?.trim();
+
+  if (email) {
+    return email.split('@')[0];
+  }
+
+  return 'Pet Lover';
+}
+
+function getFirstName(displayName) {
+  return displayName.split(' ')[0] || displayName;
 }
 
 export function EditPetPage({ app }) {

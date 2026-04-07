@@ -1,7 +1,8 @@
 import { Bell, Settings } from 'lucide-react';
 
 export default function HomePage({ app }) {
-  const { chatMessages, likedPets, matches, openChat, setCurrentScreen } = app;
+  const { authSession, chatMessages, likedPets, matches, openChat, setCurrentScreen } = app;
+  const displayName = getDisplayName(authSession);
 
   return (
     <div className="bg-gray-50 flex flex-col pb-4">
@@ -9,7 +10,7 @@ export default function HomePage({ app }) {
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-sm opacity-90">Good Morning</p>
-            <h1 className="text-2xl font-bold">Bhavana</h1>
+            <h1 className="text-2xl font-bold">{displayName}</h1>
           </div>
           <div className="flex gap-3">
             <button onClick={() => setCurrentScreen('notifications')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all relative">
@@ -116,4 +117,20 @@ export default function HomePage({ app }) {
       </div>
     </div>
   );
+}
+
+function getDisplayName(authSession) {
+  const fullName = authSession?.user?.fullName?.trim();
+
+  if (fullName) {
+    return fullName;
+  }
+
+  const email = authSession?.user?.email?.trim();
+
+  if (email) {
+    return email.split('@')[0];
+  }
+
+  return 'Pet Lover';
 }
