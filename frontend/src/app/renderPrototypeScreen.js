@@ -14,7 +14,7 @@ export function renderPrototypeScreen(app) {
     case 'signup':
       return <SignupPage app={app} onNavigate={app.setCurrentScreen} />;
     case 'petSetup':
-      return <PetSetupPage onNavigate={app.setCurrentScreen} />;
+      return <PetSetupPage app={app} onNavigate={app.setCurrentScreen} />;
     case 'home':
       return <HomePage app={app} />;
     case 'discovery':

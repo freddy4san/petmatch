@@ -18,6 +18,11 @@ function signToken(payload) {
   });
 }
 
+function verifyToken(token) {
+  return jwt.verify(token, getJwtSecret());
+}
+
 module.exports = {
   signToken,
+  verifyToken,
 };

@@ -1,6 +1,16 @@
 import { ArrowLeft, Bell, Settings } from 'lucide-react';
 
-export function PetSetupPage({ onNavigate }) {
+const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Raccoon', 'Other'];
+
+export function PetSetupPage({ app, onNavigate }) {
+  const {
+    editingPet,
+    isSavingPet,
+    petFormError,
+    saveEditingPet,
+    updateEditingPet
+  } = app;
+
   return (
     <div className="h-full bg-gray-50 flex items-center justify-center p-6">
       <div className="max-w-lg w-full bg-white rounded-3xl shadow-xl">
@@ -12,29 +22,11 @@ export function PetSetupPage({ onNavigate }) {
           <p className="text-center text-sm mt-2 opacity-90">Tell us about your furry friend</p>
         </div>
         <div className="p-8">
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Name</label>
-            <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter pet name" />
-          </div>
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Type</label>
-            <select className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none">
-              <option>Dog</option>
-              <option>Cat</option>
-              <option>Bird</option>
-              <option>Rabbit</option>
-              <option>Other</option>
-            </select>
-          </div>
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Breed</label>
-            <input type="text" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter breed" />
-          </div>
-          <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
-            <input type="number" className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter age" />
-          </div>
-          <button onClick={() => onNavigate('home')} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold hover:shadow-lg transition-all">Continue to App</button>
+          <PetFormFields pet={editingPet} updateEditingPet={updateEditingPet} />
+          <PetFormErrorMessage message={petFormError} />
+          <button onClick={saveEditingPet} disabled={isSavingPet} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold hover:shadow-lg transition-all disabled:opacity-70">
+            {isSavingPet ? 'Saving Pet...' : 'Continue to App'}
+          </button>
         </div>
       </div>
     </div>
@@ -48,12 +40,15 @@ export function ProfilePage({ app }) {
     likedPets,
     matches,
     notificationsEnabled,
+    isPetsLoading,
+    petsError,
     removePet,
     setCurrentScreen,
     setNotificationsEnabled,
     startEditingPet,
     theme,
-    userPets
+    userPets,
+    addPet
   } = app;
   const displayName = getDisplayName(authSession);
   const firstName = getFirstName(displayName);
@@ -86,6 +81,14 @@ export function ProfilePage({ app }) {
       <div className="flex-1 px-6 py-6 overflow-y-auto">
         <div className="bg-white rounded-3xl p-5 mb-6 shadow-sm">
           <h3 className="font-bold text-gray-900 mb-4">My pets</h3>
+          {petsError ? (
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{petsError}</p>
+          ) : null}
+          {isPetsLoading ? (
+            <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+              Loading your pets...
+            </div>
+          ) : null}
           <div className="flex gap-4 overflow-x-auto pb-2">
             {userPets.map((pet) => (
               <div key={pet.id} className="min-w-28 flex-shrink-0 relative">
@@ -99,7 +102,7 @@ export function ProfilePage({ app }) {
                 </button>
               </div>
             ))}
-            <div onClick={app.addPet} className="min-w-28 flex-shrink-0 cursor-pointer">
+            <div onClick={addPet} className="min-w-28 flex-shrink-0 cursor-pointer">
               <div className="bg-purple-100 rounded-2xl p-4 text-center hover:bg-purple-200 transition-colors border-2 border-dashed border-purple-300">
                 <div className="text-4xl mb-2 text-purple-600">+</div>
                 <div className="font-semibold text-sm text-purple-600">Add Pet</div>
@@ -107,6 +110,9 @@ export function ProfilePage({ app }) {
               </div>
             </div>
           </div>
+          {!isPetsLoading && userPets.length === 0 ? (
+            <p className="mt-4 text-sm text-gray-500">No pets added yet. Tap Add Pet to create your first profile.</p>
+          ) : null}
         </div>
 
         <div className="bg-white rounded-3xl p-5 mb-6 shadow-sm">
@@ -260,7 +266,15 @@ function getFirstName(displayName) {
 }
 
 export function EditPetPage({ app }) {
-  const { editingPet, saveEditingPet, setCurrentScreen, updateEditingPet } = app;
+  const {
+    editingPet,
+    isEditingExistingPet,
+    isSavingPet,
+    petFormError,
+    saveEditingPet,
+    setCurrentScreen,
+    updateEditingPet
+  } = app;
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
@@ -268,47 +282,76 @@ export function EditPetPage({ app }) {
         <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
-        <h1 className="text-2xl font-bold">Edit Pet</h1>
+        <h1 className="text-2xl font-bold">{isEditingExistingPet ? 'Edit Pet' : 'Add Pet'}</h1>
         <div className="w-10"></div>
       </div>
       <div className="flex-1 p-6">
         {editingPet ? (
           <div className="space-y-6">
             <div className="text-center">
-              <div className="text-6xl mb-4">{editingPet.emoji}</div>
-              <h2 className="text-xl font-bold">{editingPet.name}</h2>
+              <div className="text-6xl mb-4">{getPetEmoji(editingPet.type)}</div>
+              <h2 className="text-xl font-bold">{editingPet.name || 'Your Pet'}</h2>
             </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Name</label>
-                <input type="text" value={editingPet.name} onChange={(event) => updateEditingPet('name', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Type</label>
-                <select value={editingPet.type} onChange={(event) => updateEditingPet('type', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none">
-                  <option>Dog</option>
-                  <option>Cat</option>
-                  <option>Bird</option>
-                  <option>Rabbit</option>
-                  <option>Raccoon</option>
-                  <option>Other</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Breed</label>
-                <input type="text" value={editingPet.breed} onChange={(event) => updateEditingPet('breed', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
-                <input type="number" value={editingPet.age} onChange={(event) => updateEditingPet('age', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" />
-              </div>
-            </div>
-            <button onClick={saveEditingPet} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold hover:shadow-lg transition-all">
-              Save Changes
+            <PetFormFields pet={editingPet} updateEditingPet={updateEditingPet} />
+            <PetFormErrorMessage message={petFormError} />
+            <button onClick={saveEditingPet} disabled={isSavingPet} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold hover:shadow-lg transition-all disabled:opacity-70">
+              {isSavingPet ? 'Saving Pet...' : 'Save Changes'}
             </button>
           </div>
         ) : null}
       </div>
     </div>
   );
+}
+
+function PetFormFields({ pet, updateEditingPet }) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Name</label>
+        <input type="text" value={pet.name} onChange={(event) => updateEditingPet('name', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter pet name" />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Type</label>
+        <select value={pet.type} onChange={(event) => updateEditingPet('type', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none">
+          {PET_TYPE_OPTIONS.map((type) => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Breed</label>
+        <input type="text" value={pet.breed} onChange={(event) => updateEditingPet('breed', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter breed" />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
+        <input type="number" min="0" value={pet.age} onChange={(event) => updateEditingPet('age', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter age" />
+      </div>
+    </div>
+  );
+}
+
+function PetFormErrorMessage({ message }) {
+  if (!message) {
+    return null;
+  }
+
+  return <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{message}</p>;
+}
+
+function getPetEmoji(type) {
+  switch (type) {
+    case 'Bird':
+      return '🦜';
+    case 'Cat':
+      return '🐱';
+    case 'Dog':
+      return '🐕';
+    case 'Rabbit':
+      return '🐇';
+    case 'Raccoon':
+      return '🦝';
+    default:
+      return '🐾';
+  }
 }

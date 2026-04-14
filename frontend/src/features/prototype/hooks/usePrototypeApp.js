@@ -1,8 +1,23 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
-import { initialUserPets, petProfiles } from '../../../mocks/pets';
+import { petProfiles } from '../../../mocks/pets';
+import { createPet, deletePet, getUserPets, updatePet } from '../../pets/api';
 
 const AUTH_STORAGE_KEY = 'petmatch-auth-session';
+const EMPTY_PET_FORM = {
+  age: '',
+  breed: '',
+  imageUrl: '',
+  name: '',
+  type: 'Dog'
+};
+const PET_TYPE_EMOJI_MAP = {
+  Bird: '🦜',
+  Cat: '🐱',
+  Dog: '🐕',
+  Rabbit: '🐇',
+  Raccoon: '🦝'
+};
 
 const AUTO_RESPONSES = [
   'That sounds great! My pet would love to meet yours.',
@@ -32,8 +47,14 @@ export function usePrototypeApp() {
   const [showDistance, setShowDistance] = useState(true);
   const [maxDistance, setMaxDistance] = useState(25);
   const [theme, setTheme] = useState('light');
-  const [userPets, setUserPets] = useState(initialUserPets);
+  const [userPets, setUserPets] = useState([]);
+  const [isPetsLoading, setIsPetsLoading] = useState(false);
+  const [isSavingPet, setIsSavingPet] = useState(false);
+  const [petsError, setPetsError] = useState('');
+  const [petFormError, setPetFormError] = useState('');
+  const [petDraft, setPetDraft] = useState(EMPTY_PET_FORM);
   const [editingPetId, setEditingPetId] = useState(null);
+  const [petFormOriginScreen, setPetFormOriginScreen] = useState('profile');
 
   const currentPet = petProfiles[currentPetIndex];
   const currentChatPet = useMemo(
@@ -41,9 +62,51 @@ export function usePrototypeApp() {
     [currentChatPetId, matches]
   );
   const editingPet = useMemo(
-    () => userPets.find((pet) => pet.id === editingPetId) ?? null,
-    [editingPetId, userPets]
+    () => petDraft,
+    [petDraft]
   );
+
+  useEffect(() => {
+    if (!authSession?.token) {
+      setUserPets([]);
+      setEditingPetId(null);
+      setPetDraft(EMPTY_PET_FORM);
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadPets = async () => {
+      setIsPetsLoading(true);
+      setPetsError('');
+
+      try {
+        const pets = await getUserPets(authSession.token);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setUserPets(pets.map(mapApiPetToViewModel));
+      } catch (error) {
+        if (!isMounted) {
+          return;
+        }
+
+        setPetsError(error.message);
+      } finally {
+        if (isMounted) {
+          setIsPetsLoading(false);
+        }
+      }
+    };
+
+    loadPets();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authSession]);
 
   const handleSwipe = (liked) => {
     if (!currentPet) {
@@ -109,6 +172,11 @@ export function usePrototypeApp() {
     setCurrentPetIndex(0);
     setChatMessages({});
     setCurrentChatPetId(null);
+    setUserPets([]);
+    setPetDraft(EMPTY_PET_FORM);
+    setEditingPetId(null);
+    setPetsError('');
+    setPetFormError('');
     setCurrentScreen('welcome');
   };
 
@@ -123,44 +191,99 @@ export function usePrototypeApp() {
   };
 
   const startEditingPet = (pet) => {
+    setPetFormError('');
     setEditingPetId(pet.id);
+    setPetDraft(mapPetToForm(pet));
+    setPetFormOriginScreen('profile');
     setCurrentScreen('editPet');
   };
 
   const addPet = () => {
-    const nextPet = {
-      id: `user-pet-${Date.now()}`,
-      name: 'New Pet',
-      type: 'Dog',
-      breed: 'Mixed',
-      age: 1,
-      emoji: '🐕'
-    };
-
-    setUserPets((prev) => [...prev, nextPet]);
-    startEditingPet(nextPet);
+    setPetFormError('');
+    setEditingPetId(null);
+    setPetDraft(EMPTY_PET_FORM);
+    setPetFormOriginScreen('profile');
+    setCurrentScreen('editPet');
   };
 
-  const removePet = (petId) => {
-    setUserPets((prev) => prev.filter((pet) => pet.id !== petId));
-    if (editingPetId === petId) {
-      setEditingPetId(null);
+  const startPetSetup = () => {
+    setPetFormError('');
+    setEditingPetId(null);
+    setPetDraft(EMPTY_PET_FORM);
+    setPetFormOriginScreen('petSetup');
+    setCurrentScreen('petSetup');
+  };
+
+  const removePet = async (petId) => {
+    if (!authSession?.token) {
+      setPetsError('Please sign in again to manage your pets.');
+      return;
+    }
+
+    try {
+      setPetsError('');
+      await deletePet(authSession.token, petId);
+      setUserPets((prev) => prev.filter((pet) => pet.id !== petId));
+
+      if (editingPetId === petId) {
+        setEditingPetId(null);
+        setPetDraft(EMPTY_PET_FORM);
+      }
+    } catch (error) {
+      setPetsError(error.message);
     }
   };
 
   const updateEditingPet = (field, value) => {
-    if (!editingPet) {
+    setPetFormError('');
+    setPetDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const saveEditingPet = async () => {
+    if (!authSession?.token) {
+      setPetFormError('Please sign in again to save your pet.');
       return;
     }
 
-    setUserPets((prev) => prev.map((pet) => (
-      pet.id === editingPet.id ? { ...pet, [field]: value } : pet
-    )));
-  };
+    const validationError = validatePetDraft(petDraft);
 
-  const saveEditingPet = () => {
-    setCurrentScreen('profile');
-    setEditingPetId(null);
+    if (validationError) {
+      setPetFormError(validationError);
+      return;
+    }
+
+    const payload = {
+      age: Number(petDraft.age),
+      breed: petDraft.breed.trim(),
+      imageUrl: petDraft.imageUrl.trim() || undefined,
+      name: petDraft.name.trim(),
+      type: petDraft.type.trim()
+    };
+
+    setIsSavingPet(true);
+    setPetFormError('');
+
+    try {
+      const savedPet = editingPetId
+        ? await updatePet(authSession.token, editingPetId, payload)
+        : await createPet(authSession.token, payload);
+      const nextPet = mapApiPetToViewModel(savedPet);
+
+      setUserPets((prev) => {
+        if (!editingPetId) {
+          return [...prev, nextPet];
+        }
+
+        return prev.map((pet) => (pet.id === nextPet.id ? nextPet : pet));
+      });
+      setEditingPetId(null);
+      setPetDraft(EMPTY_PET_FORM);
+      setCurrentScreen(petFormOriginScreen === 'petSetup' ? 'home' : 'profile');
+    } catch (error) {
+      setPetFormError(error.message);
+    } finally {
+      setIsSavingPet(false);
+    }
   };
 
   return {
@@ -177,6 +300,9 @@ export function usePrototypeApp() {
     handleLogout,
     handleSendMessage,
     handleSwipe,
+    isEditingExistingPet: Boolean(editingPetId),
+    isPetsLoading,
+    isSavingPet,
     likedPets,
     matches,
     maxDistance,
@@ -184,6 +310,8 @@ export function usePrototypeApp() {
     notificationsEnabled,
     openChat,
     petProfiles,
+    petFormError,
+    petsError,
     removePet,
     saveEditingPet,
     setCurrentScreen,
@@ -193,6 +321,7 @@ export function usePrototypeApp() {
     setShowDistance,
     setTheme,
     showDistance,
+    startPetSetup,
     startEditingPet,
     theme,
     updateEditingPet,
@@ -233,4 +362,46 @@ function clearStoredAuthSession() {
   }
 
   window.localStorage.removeItem(AUTH_STORAGE_KEY);
+}
+
+function validatePetDraft(petDraft) {
+  if (!petDraft.name.trim()) {
+    return 'Pet name is required.';
+  }
+
+  if (!petDraft.type.trim()) {
+    return 'Pet type is required.';
+  }
+
+  if (!petDraft.breed.trim()) {
+    return 'Breed is required.';
+  }
+
+  if (petDraft.age === '' || Number.isNaN(Number(petDraft.age)) || Number(petDraft.age) < 0) {
+    return 'Please enter a valid age.';
+  }
+
+  return '';
+}
+
+function mapApiPetToViewModel(pet) {
+  return {
+    ...pet,
+    age: Number(pet.age),
+    emoji: getPetEmoji(pet.type)
+  };
+}
+
+function mapPetToForm(pet) {
+  return {
+    age: String(pet.age),
+    breed: pet.breed ?? '',
+    imageUrl: pet.imageUrl ?? '',
+    name: pet.name ?? '',
+    type: pet.type ?? 'Dog'
+  };
+}
+
+function getPetEmoji(type) {
+  return PET_TYPE_EMOJI_MAP[type] || '🐾';
 }
