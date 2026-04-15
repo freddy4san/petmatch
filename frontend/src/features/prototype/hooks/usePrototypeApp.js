@@ -214,7 +214,13 @@ export function usePrototypeApp() {
     setCurrentScreen('petSetup');
   };
 
-  const removePet = async (petId) => {
+  const removePet = async (pet) => {
+    const petId = pet?.id;
+
+    if (!petId) {
+      return;
+    }
+
     if (!authSession?.token) {
       setPetsError('Please sign in again to manage your pets.');
       return;

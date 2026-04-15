@@ -34,7 +34,7 @@ const updatePetSchema = z.object({
 });
 
 const deletePetSchema = z.object({
-  body: z.object({}),
+  body: z.object({}).optional().default({}),
   params: petIdParamsSchema,
   query: z.object({}),
 });

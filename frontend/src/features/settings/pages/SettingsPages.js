@@ -1,4 +1,4 @@
-import { ArrowLeft, X } from 'lucide-react';
+import { ArrowLeft, Bell, Settings, X } from 'lucide-react';
 
 export function PreferencesPage({ app }) {
   const { maxDistance, setCurrentScreen, setMaxDistance } = app;
@@ -6,7 +6,7 @@ export function PreferencesPage({ app }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Preferences</h1>
@@ -65,7 +65,7 @@ export function NotificationSettingsPage({ app }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Notifications</h1>
@@ -109,7 +109,7 @@ export function PrivacyPage({ app }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Privacy & Safety</h1>
@@ -243,37 +243,133 @@ export function NotificationsPage({ app }) {
 }
 
 export function SettingsPage({ app }) {
-  const { handleLogout, setCurrentScreen } = app;
+  const { handleLogout, notificationsEnabled, setCurrentScreen, setNotificationsEnabled, theme } = app;
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => setCurrentScreen('home')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Settings</h1>
         <div className="w-10"></div>
       </div>
       <div className="flex-1 p-6 overflow-y-auto">
-        <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
-          <div className="bg-gray-50 px-5 py-3 text-xs font-bold text-gray-500 tracking-wider">GENERAL</div>
-          <div className="divide-y divide-gray-100">
-            <div onClick={() => setCurrentScreen('preferences')} className="px-5 py-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
-              <div className="font-semibold text-sm">Preferences</div>
-              <span className="text-gray-400">›</span>
+        <div className="mb-4">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">ACCOUNT SETTINGS</h3>
+          <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+            <div onClick={() => setCurrentScreen('preferences')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Settings size={20} className="text-blue-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Preferences</div>
+                <div className="text-xs text-gray-500">Discovery and matching settings</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">›</span>
             </div>
-            <div onClick={() => setCurrentScreen('notificationSettings')} className="px-5 py-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
-              <div className="font-semibold text-sm">Notifications</div>
-              <span className="text-gray-400">›</span>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('notificationSettings')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-orange-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <Bell size={20} className="text-orange-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Notifications</div>
+                <div className="text-xs text-gray-500">Push notifications and alerts</div>
+              </div>
+              <div onClick={(event) => { event.stopPropagation(); setNotificationsEnabled(!notificationsEnabled); }} className={`w-11 h-6 ${notificationsEnabled ? 'bg-purple-600' : 'bg-gray-300'} rounded-full relative cursor-pointer transition-colors flex-shrink-0`}>
+                <div className={`absolute ${notificationsEnabled ? 'right-0.5' : 'left-0.5'} top-0.5 w-5 h-5 bg-white rounded-full transition-all`}></div>
+              </div>
             </div>
-            <div onClick={() => setCurrentScreen('privacy')} className="px-5 py-4 cursor-pointer hover:bg-gray-50 flex items-center justify-between">
-              <div className="font-semibold text-sm">Privacy & Safety</div>
-              <span className="text-gray-400">›</span>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('privacy')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-red-600 text-xl">🔒</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Privacy & Safety</div>
+                <div className="text-xs text-gray-500">Control who can see your profile</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">›</span>
             </div>
-            <div onClick={handleLogout} className="px-5 py-4 cursor-pointer hover:bg-gray-50">
-              <div className="font-semibold text-sm text-red-600">Log Out</div>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('premium')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-yellow-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-yellow-600 text-xl">⭐</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Go Premium</div>
+                <div className="text-xs text-gray-500">Unlock unlimited features</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">›</span>
+            </div>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('verification')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-green-600 text-xl font-bold">✓</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Account Verification</div>
+                <div className="text-xs text-gray-500">Verify your identity</div>
+              </div>
+              <div className="bg-green-500 px-3 py-1 rounded-full text-xs font-bold text-white flex-shrink-0">Active</div>
             </div>
           </div>
+        </div>
+
+        <div className="mb-4">
+          <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">APP SETTINGS</h3>
+          <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
+            <div onClick={() => setCurrentScreen('help')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-purple-600 text-xl">❓</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Help & Support</div>
+                <div className="text-xs text-gray-500">Get help or contact support</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">›</span>
+            </div>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('about')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-blue-600 text-xl">ℹ️</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">About PetMatch</div>
+                <div className="text-xs text-gray-500">App version and information</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">›</span>
+            </div>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('language')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-green-600 text-xl">🌐</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Language</div>
+                <div className="text-xs text-gray-500">Choose your language</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">English ›</span>
+            </div>
+            <div className="border-t border-gray-100"></div>
+            <div onClick={() => setCurrentScreen('themeScreen')} className="flex items-center gap-4 p-4 cursor-pointer active:bg-gray-50">
+              <div className="w-10 h-10 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0">
+                <div className="text-indigo-600 text-xl">🎨</div>
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm text-gray-900">Theme</div>
+                <div className="text-xs text-gray-500">Light or Dark mode</div>
+              </div>
+              <span className="text-gray-300 flex-shrink-0">{theme === 'light' ? 'Light' : 'Dark'} ›</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 mb-6">
+          <button onClick={handleLogout} className="w-full bg-white rounded-2xl p-4 flex items-center justify-center gap-2 shadow-sm active:bg-gray-50 border border-gray-100">
+            <div className="text-red-600 font-semibold">Log Out</div>
+          </button>
         </div>
       </div>
     </div>
@@ -284,7 +380,7 @@ export function PremiumPage({ onNavigate }) {
   return (
     <div className="h-full bg-gradient-to-br from-yellow-400 via-orange-400 to-pink-500 flex flex-col">
       <div className="p-6 flex items-center justify-between text-white">
-        <button onClick={() => onNavigate('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <X size={20} />
         </button>
         <div className="text-2xl">⭐</div>
@@ -325,7 +421,7 @@ export function PremiumPage({ onNavigate }) {
               <div className="text-center text-xs text-gray-500 mt-3">7 days free, then $9.99/month</div>
             </div>
           </div>
-          <button onClick={() => onNavigate('profile')} className="w-full text-white text-center py-3 font-semibold hover:opacity-80">
+          <button onClick={() => onNavigate('settings')} className="w-full text-white text-center py-3 font-semibold hover:opacity-80">
             Maybe Later
           </button>
         </div>
@@ -338,7 +434,7 @@ export function HelpPage({ onNavigate }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => onNavigate('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Help & Support</h1>
@@ -357,7 +453,7 @@ export function HelpPage({ onNavigate }) {
           </div>
           <div className="bg-white rounded-2xl p-4">
             <h3 className="font-semibold mb-2">How do I change my preferences?</h3>
-            <p className="text-gray-600">Go to Profile {'>'} Preferences to adjust discovery settings like distance and pet types.</p>
+            <p className="text-gray-600">Go to Settings {'>'} Preferences to adjust discovery settings like distance and pet types.</p>
           </div>
           <div className="bg-white rounded-2xl p-4">
             <h3 className="font-semibold mb-2">How do I report a problem?</h3>
@@ -373,7 +469,7 @@ export function AboutPage({ onNavigate }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => onNavigate('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">About PetMatch</h1>
@@ -388,7 +484,7 @@ export function AboutPage({ onNavigate }) {
           <p className="text-gray-600 mb-4">Version 1.0.0</p>
           <p className="text-gray-600 leading-relaxed">PetMatch is the ultimate app for finding perfect playmates, breeding partners, and friends for your beloved pets. Connect with pet owners in your area and create lasting bonds between furry friends.</p>
           <div className="mt-6 text-sm text-gray-500">
-            <p>© 2024 PetMatch Inc.</p>
+            <p>© 2026 PetMatch Inc.</p>
             <p>All rights reserved.</p>
           </div>
         </div>
@@ -401,7 +497,7 @@ export function LanguagePage({ onNavigate }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => onNavigate('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Language</h1>
@@ -449,7 +545,7 @@ export function ThemePage({ app }) {
   return (
     <div className="h-full bg-gray-50 flex flex-col">
       <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
-        <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+        <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Theme</h1>

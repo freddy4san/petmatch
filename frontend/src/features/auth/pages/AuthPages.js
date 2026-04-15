@@ -4,8 +4,8 @@ import { useAuthForm } from '../hooks';
 
 export function WelcomePage({ onNavigate }) {
   return (
-    <div className="h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-start justify-center p-6 pt-12">
-      <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl p-8 text-center">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-500 to-purple-600 flex flex-col justify-center p-6 md:items-center">
+      <div className="w-full bg-white px-8 py-10 text-center md:max-w-lg md:rounded-3xl md:shadow-2xl">
         <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center shadow-lg">
           <span className="text-6xl">🐾</span>
         </div>
@@ -32,9 +32,9 @@ export function LoginPage({ app, onNavigate }) {
   });
 
   return (
-    <div className="h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center p-6">
-      <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl">
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-t-3xl p-8 text-white relative">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-500 to-purple-600 md:flex md:items-center md:justify-center md:p-6">
+      <div className="min-h-[100dvh] w-full bg-white md:min-h-0 md:max-w-lg md:rounded-3xl md:shadow-2xl">
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-8 pb-8 pt-14 text-white relative md:rounded-t-3xl md:p-8">
           <button onClick={() => onNavigate('welcome')} className="absolute left-4 top-4 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
             <ArrowLeft size={20} />
           </button>
@@ -79,9 +79,9 @@ export function SignupPage({ app, onNavigate }) {
   });
 
   return (
-    <div className="h-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-start justify-center p-6">
-      <div className="max-w-lg w-full bg-white rounded-3xl shadow-2xl">
-        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 rounded-t-3xl p-8 text-white relative">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-500 to-purple-600 md:flex md:items-center md:justify-center md:p-6">
+      <div className="min-h-[100dvh] w-full bg-white md:min-h-0 md:max-w-lg md:rounded-3xl md:shadow-2xl">
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-8 pb-8 pt-14 text-white relative md:rounded-t-3xl md:p-8">
           <button onClick={() => onNavigate('welcome')} className="absolute left-4 top-4 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
             <ArrowLeft size={20} />
           </button>
@@ -90,7 +90,7 @@ export function SignupPage({ app, onNavigate }) {
           </div>
           <h2 className="text-2xl font-bold text-center">Create Account</h2>
         </div>
-        <form className="p-8 max-h-96 overflow-y-auto" onSubmit={handleSignupSubmit}>
+        <form className="p-8 md:max-h-96 md:overflow-y-auto" onSubmit={handleSignupSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
             <input name="fullName" type="text" value={formData.fullName} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter your full name" />
