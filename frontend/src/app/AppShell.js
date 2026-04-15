@@ -6,21 +6,21 @@ const HIDE_NAV_SCREENS = new Set(['welcome', 'login', 'signup', 'petSetup', 'not
 
 export default function AppShell() {
   const app = usePrototypeApp();
+  const hideNav = HIDE_NAV_SCREENS.has(app.currentScreen);
 
   return (
-    <div className="phone-mockup" style={{ left: '220px' }}>
-      <div className="phone-body">
-        <div className="phone-notch"></div>
-        <div className="phone-screen w-[480px] bg-white shadow-2xl" style={{ height: '1024px', overflow: 'auto' }}>
+    <div className="min-h-[100dvh] bg-slate-100 md:flex md:items-center md:justify-center md:p-6">
+      <div className="flex min-h-[100dvh] w-full flex-col overflow-hidden bg-white md:min-h-[min(100dvh,900px)] md:max-w-[430px] md:rounded-[32px] md:shadow-2xl">
+        <div className="flex-1 overflow-x-hidden overflow-y-auto">
           {renderPrototypeScreen(app)}
-          {!HIDE_NAV_SCREENS.has(app.currentScreen) ? (
-            <BottomNav
-              active={app.getActiveNav(app.currentScreen)}
-              matchCount={app.matches.length}
-              onNavigate={app.setCurrentScreen}
-            />
-          ) : null}
         </div>
+        {!hideNav ? (
+          <BottomNav
+            active={app.getActiveNav(app.currentScreen)}
+            matchCount={app.matches.length}
+            onNavigate={app.setCurrentScreen}
+          />
+        ) : null}
       </div>
     </div>
   );
