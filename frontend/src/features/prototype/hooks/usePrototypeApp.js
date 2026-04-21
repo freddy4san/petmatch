@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { petProfiles } from '../../../mocks/pets';
-import { createPet, deletePet, getUserPets, updatePet } from '../../pets/api';
+import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
 
 const AUTH_STORAGE_KEY = 'petmatch-auth-session';
 const EMPTY_PET_FORM = {
   age: '',
   breed: '',
+  imageFile: null,
+  imagePreviewUrl: '',
   imageUrl: '',
   name: '',
+  shouldDeleteImage: false,
   type: 'Dog'
 };
 const PET_TYPE_EMOJI_MAP = {
@@ -242,7 +245,32 @@ export function usePrototypeApp() {
 
   const updateEditingPet = (field, value) => {
     setPetFormError('');
-    setPetDraft((prev) => ({ ...prev, [field]: value }));
+    setPetDraft((prev) => {
+      if (field === 'imageFile') {
+        revokeObjectUrl(prev.imagePreviewUrl);
+
+        return {
+          ...prev,
+          imageFile: value,
+          imagePreviewUrl: value ? createObjectPreviewUrl(value) : '',
+          shouldDeleteImage: value ? false : prev.shouldDeleteImage
+        };
+      }
+
+      if (field === 'removeImage') {
+        revokeObjectUrl(prev.imagePreviewUrl);
+
+        return {
+          ...prev,
+          imageFile: null,
+          imagePreviewUrl: '',
+          imageUrl: '',
+          shouldDeleteImage: Boolean(prev.imageUrl)
+        };
+      }
+
+      return { ...prev, [field]: value };
+    });
   };
 
   const saveEditingPet = async () => {
@@ -261,7 +289,6 @@ export function usePrototypeApp() {
     const payload = {
       age: Number(petDraft.age),
       breed: petDraft.breed.trim(),
-      imageUrl: petDraft.imageUrl.trim() || undefined,
       name: petDraft.name.trim(),
       type: petDraft.type.trim()
     };
@@ -270,19 +297,32 @@ export function usePrototypeApp() {
     setPetFormError('');
 
     try {
-      const savedPet = editingPetId
+      const wasEditingExistingPet = Boolean(editingPetId);
+      const savedProfilePet = editingPetId
         ? await updatePet(authSession.token, editingPetId, payload)
         : await createPet(authSession.token, payload);
-      const nextPet = mapApiPetToViewModel(savedPet);
+      let savedPet = savedProfilePet;
 
-      setUserPets((prev) => {
-        if (!editingPetId) {
-          return [...prev, nextPet];
+      try {
+        if (petDraft.imageFile) {
+          savedPet = await uploadPetImage(authSession.token, savedProfilePet.id, petDraft.imageFile);
+        } else if (wasEditingExistingPet && petDraft.shouldDeleteImage) {
+          savedPet = await deletePetImage(authSession.token, savedProfilePet.id);
+        }
+      } catch (imageError) {
+        setUserPets((prev) => upsertPetInList(prev, savedProfilePet, wasEditingExistingPet));
+
+        if (!wasEditingExistingPet) {
+          setEditingPetId(savedProfilePet.id);
         }
 
-        return prev.map((pet) => (pet.id === nextPet.id ? nextPet : pet));
-      });
+        setPetFormError(`Pet details saved, but the image update failed: ${imageError.message}`);
+        return;
+      }
+
+      setUserPets((prev) => upsertPetInList(prev, savedPet, wasEditingExistingPet));
       setEditingPetId(null);
+      revokeObjectUrl(petDraft.imagePreviewUrl);
       setPetDraft(EMPTY_PET_FORM);
       setCurrentScreen(petFormOriginScreen === 'petSetup' ? 'home' : 'profile');
     } catch (error) {
@@ -390,6 +430,30 @@ function validatePetDraft(petDraft) {
   return '';
 }
 
+function createObjectPreviewUrl(file) {
+  if (typeof URL === 'undefined' || typeof URL.createObjectURL !== 'function') {
+    return '';
+  }
+
+  return URL.createObjectURL(file);
+}
+
+function revokeObjectUrl(url) {
+  if (url?.startsWith('blob:') && typeof URL !== 'undefined' && typeof URL.revokeObjectURL === 'function') {
+    URL.revokeObjectURL(url);
+  }
+}
+
+function upsertPetInList(pets, apiPet, isExistingPet) {
+  const nextPet = mapApiPetToViewModel(apiPet);
+
+  if (!isExistingPet) {
+    return pets.some((pet) => pet.id === nextPet.id) ? pets : [...pets, nextPet];
+  }
+
+  return pets.map((pet) => (pet.id === nextPet.id ? nextPet : pet));
+}
+
 function mapApiPetToViewModel(pet) {
   return {
     ...pet,
@@ -402,8 +466,12 @@ function mapPetToForm(pet) {
   return {
     age: String(pet.age),
     breed: pet.breed ?? '',
+    id: pet.id,
+    imageFile: null,
+    imagePreviewUrl: '',
     imageUrl: pet.imageUrl ?? '',
     name: pet.name ?? '',
+    shouldDeleteImage: false,
     type: pet.type ?? 'Dog'
   };
 }

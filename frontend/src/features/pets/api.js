@@ -34,3 +34,21 @@ export function deletePet(token, petId) {
     headers: getAuthHeaders(token)
   });
 }
+
+export function uploadPetImage(token, petId, imageFile) {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+
+  return apiFetch(`/pets/${petId}/image`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: formData
+  });
+}
+
+export function deletePetImage(token, petId) {
+  return apiFetch(`/pets/${petId}/image`, {
+    method: 'DELETE',
+    headers: getAuthHeaders(token)
+  });
+}

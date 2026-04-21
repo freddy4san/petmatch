@@ -1,0 +1,10 @@
+ALTER TABLE "Pet" ADD COLUMN "imagePublicId" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "imageAssetId" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "imageVersion" INTEGER;
+ALTER TABLE "Pet" ADD COLUMN "imageFormat" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "imageResourceType" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "imageBytes" INTEGER;
+ALTER TABLE "Pet" ADD COLUMN "imageWidth" INTEGER;
+ALTER TABLE "Pet" ADD COLUMN "imageHeight" INTEGER;
+ALTER TABLE "Pet" ADD COLUMN "imageOriginalFilename" TEXT;
+ALTER TABLE "Pet" ADD COLUMN "imageUploadedAt" TIMESTAMP(3);

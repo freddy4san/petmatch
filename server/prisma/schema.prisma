@@ -18,18 +18,28 @@ model User {
 }
 
 model Pet {
-  id            String  @id @default(cuid())
-  name          String
-  type          String
-  age           Int
-  breed         String
-  imageUrl      String?
-  ownerId       String
-  owner         User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  sentLikes     Like[]  @relation("SentLikes")
-  receivedLikes Like[]  @relation("ReceivedLikes")
-  matchesAsPet1 Match[] @relation("MatchPet1")
-  matchesAsPet2 Match[] @relation("MatchPet2")
+  id                    String    @id @default(cuid())
+  name                  String
+  type                  String
+  age                   Int
+  breed                 String
+  imageUrl              String?
+  imagePublicId         String?
+  imageAssetId          String?
+  imageVersion          Int?
+  imageFormat           String?
+  imageResourceType     String?
+  imageBytes            Int?
+  imageWidth            Int?
+  imageHeight           Int?
+  imageOriginalFilename String?
+  imageUploadedAt       DateTime?
+  ownerId               String
+  owner                 User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sentLikes             Like[]    @relation("SentLikes")
+  receivedLikes         Like[]    @relation("ReceivedLikes")
+  matchesAsPet1         Match[]   @relation("MatchPet1")
+  matchesAsPet2         Match[]   @relation("MatchPet2")
 
   @@index([ownerId])
 }

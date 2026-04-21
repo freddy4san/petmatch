@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
 
 const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Raccoon', 'Other'];
 
@@ -100,7 +100,11 @@ export function ProfilePage({ app }) {
             {userPets.map((pet) => (
               <div key={pet.id} className="min-w-28 flex-shrink-0 relative pt-2 pr-2">
                 <div onClick={() => startEditingPet(pet)} className="bg-gray-100 rounded-2xl p-4 text-center hover:bg-gray-200 transition-colors cursor-pointer">
-                  <div className="text-4xl mb-2">{pet.emoji}</div>
+                  {pet.imageUrl ? (
+                    <img src={pet.imageUrl} alt={pet.name} className="mx-auto mb-2 h-12 w-12 rounded-full object-cover" />
+                  ) : (
+                    <div className="text-4xl mb-2">{pet.emoji}</div>
+                  )}
                   <div className="font-semibold text-sm text-gray-900">{pet.name}</div>
                   <div className="text-xs text-gray-500">{pet.breed}</div>
                 </div>
@@ -228,8 +232,55 @@ export function EditPetPage({ app }) {
 }
 
 function PetFormFields({ pet, updateEditingPet }) {
+  const imagePreviewUrl = pet.imagePreviewUrl || pet.imageUrl;
+  const imageInputId = `pet-image-${pet.id || 'draft'}`;
+
   return (
     <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Photo</label>
+        <div className="flex items-center gap-4">
+          <div className="flex h-20 w-20 flex-shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gray-100 text-4xl">
+            {imagePreviewUrl ? (
+              <img src={imagePreviewUrl} alt={pet.name || 'Pet preview'} className="h-full w-full object-cover" />
+            ) : (
+              <span>{getPetEmoji(pet.type)}</span>
+            )}
+          </div>
+          <div className="min-w-0 flex-1">
+            <input
+              id={imageInputId}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+
+                if (file) {
+                  updateEditingPet('imageFile', file);
+                }
+
+                event.target.value = '';
+              }}
+            />
+            <div className="flex flex-wrap gap-2">
+              <label htmlFor={imageInputId} className="inline-flex cursor-pointer items-center gap-2 rounded-full bg-purple-100 px-4 py-2 text-sm font-semibold text-purple-700 transition-colors hover:bg-purple-200">
+                <ImagePlus size={16} />
+                {imagePreviewUrl ? 'Replace' : 'Upload'}
+              </label>
+              {imagePreviewUrl ? (
+                <button type="button" onClick={() => updateEditingPet('removeImage')} className="inline-flex items-center gap-2 rounded-full bg-red-50 px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-100">
+                  <Trash2 size={16} />
+                  Remove
+                </button>
+              ) : null}
+            </div>
+            {pet.imageFile ? (
+              <p className="mt-2 truncate text-xs text-gray-500">{pet.imageFile.name}</p>
+            ) : null}
+          </div>
+        </div>
+      </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Pet Name</label>
         <input type="text" value={pet.name} onChange={(event) => updateEditingPet('name', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter pet name" />

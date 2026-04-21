@@ -39,14 +39,41 @@ async function update(req, res, next) {
   }
 }
 
+async function uploadImage(req, res, next) {
+  try {
+    const pet = await petsService.uploadPetImage(req.user.userId, req.params.petId, req.file);
+
+    return res.status(200).json({
+      success: true,
+      data: pet,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function removeImage(req, res, next) {
+  try {
+    const pet = await petsService.deletePetImage(req.user.userId, req.params.petId);
+
+    return res.status(200).json({
+      success: true,
+      data: pet,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 async function remove(req, res, next) {
   try {
-    await petsService.deletePet(req.user.userId, req.params.petId);
+    const deleteResult = await petsService.deletePet(req.user.userId, req.params.petId);
 
     return res.status(200).json({
       success: true,
       data: {
         id: req.params.petId,
+        ...deleteResult,
       },
     });
   } catch (error) {
@@ -58,5 +85,7 @@ module.exports = {
   create,
   list,
   remove,
+  removeImage,
   update,
+  uploadImage,
 };

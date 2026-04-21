@@ -4,11 +4,12 @@ const API_BASE_URL = normalizeApiBaseUrl(
 
 export async function apiFetch(path, options = {}) {
   const { headers, ...restOptions } = options;
+  const isFormData = typeof FormData !== 'undefined' && restOptions.body instanceof FormData;
 
   const response = await fetch(buildApiUrl(path), {
     ...restOptions,
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(headers || {})
     }
   });
