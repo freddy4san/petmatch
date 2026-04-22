@@ -1,12 +1,12 @@
 const express = require("express");
-const matchesController = require("../controllers/matches.controller");
+const discoveryController = require("../controllers/discovery.controller");
 const { requireAuth } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
-const { listMatchesSchema } = require("../types/matches.schema");
+const { discoverySchema } = require("../types/discovery.schema");
 
 const router = express.Router();
 
 router.use(requireAuth);
-router.get("/", validate(listMatchesSchema), matchesController.list);
+router.get("/", validate(discoverySchema), discoveryController.list);
 
 module.exports = router;

@@ -18,7 +18,7 @@ model User {
 }
 
 model Pet {
-  id                    String    @id @default(cuid())
+  id                    String        @id @default(cuid())
   name                  String
   type                  String
   age                   Int
@@ -35,26 +35,34 @@ model Pet {
   imageOriginalFilename String?
   imageUploadedAt       DateTime?
   ownerId               String
-  owner                 User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  sentLikes             Like[]    @relation("SentLikes")
-  receivedLikes         Like[]    @relation("ReceivedLikes")
-  matchesAsPet1         Match[]   @relation("MatchPet1")
-  matchesAsPet2         Match[]   @relation("MatchPet2")
+  owner                 User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  sentInteractions      Interaction[] @relation("SentInteractions")
+  receivedInteractions  Interaction[] @relation("ReceivedInteractions")
+  matchesAsPet1         Match[]       @relation("MatchPet1")
+  matchesAsPet2         Match[]       @relation("MatchPet2")
 
   @@index([ownerId])
 }
 
-model Like {
-  id        String @id @default(cuid())
+enum InteractionType {
+  LIKE
+  PASS
+}
+
+model Interaction {
+  id        String          @id @default(cuid())
   fromPetId String
   toPetId   String
-  fromPet   Pet    @relation("SentLikes", fields: [fromPetId], references: [id], onDelete: Cascade)
-  toPet     Pet    @relation("ReceivedLikes", fields: [toPetId], references: [id], onDelete: Cascade)
+  type      InteractionType
+  createdAt DateTime        @default(now())
+  fromPet   Pet             @relation("SentInteractions", fields: [fromPetId], references: [id], onDelete: Cascade)
+  toPet     Pet             @relation("ReceivedInteractions", fields: [toPetId], references: [id], onDelete: Cascade)
 
   @@unique([fromPetId, toPetId])
   @@index([fromPetId])
   @@index([toPetId])
-  @@map("likes")
+  @@index([fromPetId, type])
+  @@map("interactions")
 }
 
 model Match {

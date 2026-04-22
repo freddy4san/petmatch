@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { petProfiles } from '../../../mocks/pets';
+import { getDiscoveryPets } from '../../discovery/api';
+import { createInteraction } from '../../interactions/api';
+import { getMatches } from '../../matches/api';
 import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
 
 const AUTH_STORAGE_KEY = 'petmatch-auth-session';
@@ -30,19 +32,12 @@ const AUTO_RESPONSES = [
   'Great idea! How about this weekend?'
 ];
 
-const DEFAULT_MESSAGE = (petName) => ({
-  id: `intro-${petName.toLowerCase()}`,
-  text: `Hi! I saw ${petName}'s profile and our pets would be great playmates!`,
-  time: '10:30 AM',
-  sent: false
-});
-
 export function usePrototypeApp() {
   const [authSession, setAuthSession] = useState(() => readStoredAuthSession());
   const [currentScreen, setCurrentScreen] = useState('welcome');
   const [matches, setMatches] = useState([]);
   const [likedPets, setLikedPets] = useState([]);
-  const [currentPetIndex, setCurrentPetIndex] = useState(0);
+  const [discoveryPets, setDiscoveryPets] = useState([]);
   const [currentChatPetId, setCurrentChatPetId] = useState(null);
   const [chatMessages, setChatMessages] = useState({});
   const [newMessage, setNewMessage] = useState('');
@@ -58,8 +53,15 @@ export function usePrototypeApp() {
   const [petDraft, setPetDraft] = useState(EMPTY_PET_FORM);
   const [editingPetId, setEditingPetId] = useState(null);
   const [petFormOriginScreen, setPetFormOriginScreen] = useState('profile');
+  const [isDiscoveryLoading, setIsDiscoveryLoading] = useState(false);
+  const [discoveryError, setDiscoveryError] = useState('');
+  const [isInteracting, setIsInteracting] = useState(false);
+  const [interactionError, setInteractionError] = useState('');
+  const [isMatchesLoading, setIsMatchesLoading] = useState(false);
+  const [matchesError, setMatchesError] = useState('');
 
-  const currentPet = petProfiles[currentPetIndex];
+  const activeUserPet = userPets[0] ?? null;
+  const currentPet = discoveryPets[0] ?? null;
   const currentChatPet = useMemo(
     () => matches.find((match) => match.id === currentChatPetId) ?? null,
     [currentChatPetId, matches]
@@ -69,9 +71,50 @@ export function usePrototypeApp() {
     [petDraft]
   );
 
+  const loadDiscoveryPets = useCallback(async () => {
+    if (!authSession?.token) {
+      setDiscoveryPets([]);
+      return;
+    }
+
+    setIsDiscoveryLoading(true);
+    setDiscoveryError('');
+
+    try {
+      const pets = await getDiscoveryPets(authSession.token, { limit: 10 });
+      setDiscoveryPets(pets.map(mapApiPetToViewModel));
+    } catch (error) {
+      setDiscoveryError(error.message);
+    } finally {
+      setIsDiscoveryLoading(false);
+    }
+  }, [authSession]);
+
+  const loadMatches = useCallback(async () => {
+    if (!authSession?.token) {
+      setMatches([]);
+      return;
+    }
+
+    setIsMatchesLoading(true);
+    setMatchesError('');
+
+    try {
+      const nextMatches = await getMatches(authSession.token);
+      setMatches(nextMatches.map(mapApiMatchToViewModel));
+    } catch (error) {
+      setMatchesError(error.message);
+    } finally {
+      setIsMatchesLoading(false);
+    }
+  }, [authSession]);
+
   useEffect(() => {
     if (!authSession?.token) {
       setUserPets([]);
+      setDiscoveryPets([]);
+      setMatches([]);
+      setLikedPets([]);
       setEditingPetId(null);
       setPetDraft(EMPTY_PET_FORM);
       return;
@@ -111,22 +154,68 @@ export function usePrototypeApp() {
     };
   }, [authSession]);
 
-  const handleSwipe = (liked) => {
+  useEffect(() => {
+    if (!authSession?.token) {
+      return;
+    }
+
+    loadDiscoveryPets();
+    loadMatches();
+  }, [authSession, loadDiscoveryPets, loadMatches]);
+
+  const handleSwipe = async (liked) => {
     if (!currentPet) {
       return;
     }
 
-    if (liked) {
-      setMatches((prev) => [...prev, currentPet]);
-      setLikedPets((prev) => [...prev, currentPet]);
-      setChatMessages((prev) => (
-        prev[currentPet.id]
-          ? prev
-          : { ...prev, [currentPet.id]: [DEFAULT_MESSAGE(currentPet.name)] }
-      ));
+    if (!authSession?.token) {
+      setInteractionError('Please sign in again to discover pets.');
+      return;
     }
 
-    setCurrentPetIndex((prev) => (prev < petProfiles.length - 1 ? prev + 1 : 0));
+    if (!activeUserPet) {
+      setInteractionError('Add one of your pets before discovering matches.');
+      return;
+    }
+
+    setIsInteracting(true);
+    setInteractionError('');
+
+    try {
+      const interactionResult = await createInteraction(authSession.token, {
+        fromPetId: activeUserPet.id,
+        toPetId: currentPet.id,
+        type: liked ? 'LIKE' : 'PASS'
+      });
+
+      setDiscoveryPets((prev) => prev.filter((pet) => pet.id !== currentPet.id));
+
+      if (liked) {
+        setLikedPets((prev) => (
+          prev.some((pet) => pet.id === currentPet.id) ? prev : [...prev, currentPet]
+        ));
+      }
+
+      if (interactionResult.match) {
+        await loadMatches();
+      }
+
+      if (discoveryPets.length <= 1) {
+        await loadDiscoveryPets();
+      }
+    } catch (error) {
+      if (error.message === 'Interaction already exists') {
+        setDiscoveryPets((prev) => prev.filter((pet) => pet.id !== currentPet.id));
+        if (discoveryPets.length <= 1) {
+          await loadDiscoveryPets();
+        }
+        return;
+      }
+
+      setInteractionError(error.message);
+    } finally {
+      setIsInteracting(false);
+    }
   };
 
   const openChat = (pet) => {
@@ -172,7 +261,7 @@ export function usePrototypeApp() {
     setAuthSession(null);
     setMatches([]);
     setLikedPets([]);
-    setCurrentPetIndex(0);
+    setDiscoveryPets([]);
     setChatMessages({});
     setCurrentChatPetId(null);
     setUserPets([]);
@@ -180,6 +269,9 @@ export function usePrototypeApp() {
     setEditingPetId(null);
     setPetsError('');
     setPetFormError('');
+    setDiscoveryError('');
+    setInteractionError('');
+    setMatchesError('');
     setCurrentScreen('welcome');
   };
 
@@ -324,6 +416,8 @@ export function usePrototypeApp() {
       setEditingPetId(null);
       revokeObjectUrl(petDraft.imagePreviewUrl);
       setPetDraft(EMPTY_PET_FORM);
+      loadDiscoveryPets();
+      loadMatches();
       setCurrentScreen(petFormOriginScreen === 'petSetup' ? 'home' : 'profile');
     } catch (error) {
       setPetFormError(error.message);
@@ -333,12 +427,12 @@ export function usePrototypeApp() {
   };
 
   return {
+    activeUserPet,
     addPet,
     authSession,
     chatMessages,
     currentChatPet,
     currentPet,
-    currentPetIndex,
     currentScreen,
     editingPet,
     getActiveNav,
@@ -346,16 +440,22 @@ export function usePrototypeApp() {
     handleLogout,
     handleSendMessage,
     handleSwipe,
+    isDiscoveryLoading,
     isEditingExistingPet: Boolean(editingPetId),
+    isInteracting,
+    isMatchesLoading,
     isPetsLoading,
     isSavingPet,
+    discoveryError,
+    discoveryPets,
+    interactionError,
     likedPets,
     matches,
+    matchesError,
     maxDistance,
     newMessage,
     notificationsEnabled,
     openChat,
-    petProfiles,
     petFormError,
     petsError,
     removePet,
@@ -457,8 +557,28 @@ function upsertPetInList(pets, apiPet, isExistingPet) {
 function mapApiPetToViewModel(pet) {
   return {
     ...pet,
-    age: Number(pet.age),
-    emoji: getPetEmoji(pet.type)
+    age: Number(pet.age || 0),
+    emoji: getPetEmoji(pet.type),
+    image: pet.primaryImage?.url || pet.imageUrl || ''
+  };
+}
+
+function mapApiMatchToViewModel(match) {
+  const otherPet = match.otherPet || {};
+
+  return {
+    id: match.id,
+    createdAt: match.createdAt,
+    petIds: match.petIds || [],
+    currentPet: match.currentPet ? mapApiPetToViewModel(match.currentPet) : null,
+    otherPet: mapApiPetToViewModel(otherPet),
+    age: Number(otherPet.age || 0),
+    breed: otherPet.breed || '',
+    emoji: getPetEmoji(otherPet.type),
+    image: otherPet.primaryImage?.url || otherPet.imageUrl || '',
+    imageUrl: otherPet.imageUrl || otherPet.primaryImage?.url || '',
+    name: otherPet.name || 'Matched pet',
+    type: otherPet.type || ''
   };
 }
 

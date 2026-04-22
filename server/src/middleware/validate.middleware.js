@@ -7,9 +7,13 @@ function validate(schema) {
         query: req.query,
       });
 
+      req.validated = validatedData;
       req.body = validatedData.body;
       req.params = validatedData.params;
-      req.query = validatedData.query;
+      Object.keys(req.query).forEach((key) => {
+        delete req.query[key];
+      });
+      Object.assign(req.query, validatedData.query);
 
       return next();
     } catch (error) {

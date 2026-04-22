@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronLeft, Send } from 'lucide-react';
 
 export function MatchesPage({ app }) {
-  const { chatMessages, matches, openChat, setCurrentScreen } = app;
+  const { chatMessages, isMatchesLoading, matches, matchesError, openChat, setCurrentScreen } = app;
 
   return (
     <div className="bg-gray-50 flex flex-col pb-4">
@@ -18,10 +18,22 @@ export function MatchesPage({ app }) {
         ))}
       </div>
       <div className="flex-1 p-4 overflow-y-auto">
+        {matchesError ? (
+          <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{matchesError}</p>
+        ) : null}
+        {isMatchesLoading && matches.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+            Loading matches...
+          </div>
+        ) : null}
         {matches.length > 0 ? matches.map((match) => (
           <div key={match.id} onClick={() => openChat(match)} className="bg-white rounded-2xl p-4 mb-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-all">
             <div className="relative flex-shrink-0">
-              <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-2xl">{match.emoji}</div>
+              {match.image ? (
+                <img src={match.image} alt={match.name} className="w-14 h-14 rounded-full object-cover" />
+              ) : (
+                <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-2xl">{match.emoji}</div>
+              )}
               <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
             <div className="flex-1 min-w-0">
@@ -29,7 +41,7 @@ export function MatchesPage({ app }) {
               <div className="text-sm text-gray-600 truncate">
                 {chatMessages[match.id]?.length > 0
                   ? chatMessages[match.id][chatMessages[match.id].length - 1].text
-                  : `Let's meet up at ${match.location}`}
+                  : getMatchPreview(match)}
               </div>
             </div>
             <div className="text-right flex-shrink-0">
@@ -39,17 +51,24 @@ export function MatchesPage({ app }) {
               ) : null}
             </div>
           </div>
-        )) : (
+        )) : null}
+        {!isMatchesLoading && matches.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="text-6xl mb-4">💬</div>
             <p className="text-gray-600 font-semibold mb-2">No matches yet</p>
             <p className="text-gray-500 text-sm mb-4">Start swiping to find your pet's perfect match!</p>
             <button onClick={() => setCurrentScreen('discovery')} className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg">Start Discovering</button>
           </div>
-        )}
+        ) : null}
       </div>
     </div>
   );
+}
+
+function getMatchPreview(match) {
+  const petDetails = match.breed || match.type;
+
+  return petDetails ? `${petDetails} is ready to chat` : 'Ready to chat';
 }
 
 export function ChatPage({ app }) {
@@ -62,7 +81,11 @@ export function ChatPage({ app }) {
         <button onClick={() => setCurrentScreen('matches')} className="w-10 h-10 bg-white bg-opacity-20 rounded-2xl flex items-center justify-center flex-shrink-0 hover:bg-opacity-30">
           <ChevronLeft size={20} />
         </button>
-        <div className="w-11 h-11 bg-white bg-opacity-30 rounded-full flex items-center justify-center text-xl flex-shrink-0">{currentChatPet?.emoji || '🐕'}</div>
+        {currentChatPet?.image ? (
+          <img src={currentChatPet.image} alt={currentChatPet.name} className="w-11 h-11 rounded-full object-cover flex-shrink-0" />
+        ) : (
+          <div className="w-11 h-11 bg-white bg-opacity-30 rounded-full flex items-center justify-center text-xl flex-shrink-0">{currentChatPet?.emoji || '🐕'}</div>
+        )}
         <div className="flex-1 min-w-0">
           <div className="font-bold truncate">{currentChatPet?.name || 'Pet'} & Owner</div>
           <div className="text-xs opacity-90">{matches.length > 0 ? 'Active now' : 'Start a match first'}</div>
