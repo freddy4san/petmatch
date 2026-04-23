@@ -1,9 +1,18 @@
 # AGENTS.md
 
 ## Repo overview
-PetMatch is a full-stack monorepo with:
-- frontend/ = React client
-- server/ = Node/Express API with Prisma/Postgres
+PetMatch repository facts:
+- server/ is the backend
+- frontend/ is the frontend
+- backend stack: Express + Prisma + PostgreSQL (Neon)
+- image storage: Cloudinary
+- frontend stack: React
+- backend routes are mounted under /api
+- local frontend API base should target http://localhost:3001/api
+- production frontend API base should target the Render backend /api URL
+- do not store image binaries in the database
+- keep changes incremental and scoped
+- do not modify unrelated code
 
 ## Working agreements
 - Do not change both frontend and backend in the same implementation step unless explicitly asked.
