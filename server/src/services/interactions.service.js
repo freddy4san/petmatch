@@ -1,5 +1,6 @@
 const { Prisma } = require("@prisma/client");
 
+const conversationsService = require("./conversations.service");
 const prisma = require("../lib/prisma");
 const { createHttpError } = require("../lib/helpers");
 
@@ -112,33 +113,47 @@ async function ensureReciprocalMatch(fromPetId, toPetId) {
   const [pet1Id, pet2Id] = getMatchPetIds(fromPetId, toPetId);
 
   try {
-    return await prisma.match.upsert({
-      where: {
-        pet1Id_pet2Id: {
+    return await prisma.$transaction(async (tx) => {
+      const match = await tx.match.upsert({
+        where: {
+          pet1Id_pet2Id: {
+            pet1Id,
+            pet2Id,
+          },
+        },
+        create: {
           pet1Id,
           pet2Id,
         },
-      },
-      create: {
-        pet1Id,
-        pet2Id,
-      },
-      update: {},
-      select: MATCH_SELECT,
+        update: {},
+        select: MATCH_SELECT,
+      });
+
+      await conversationsService.ensureConversationForMatch(match.id, tx);
+
+      return match;
     });
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
     }
 
-    return prisma.match.findUnique({
-      where: {
-        pet1Id_pet2Id: {
-          pet1Id,
-          pet2Id,
+    return prisma.$transaction(async (tx) => {
+      const match = await tx.match.findUnique({
+        where: {
+          pet1Id_pet2Id: {
+            pet1Id,
+            pet2Id,
+          },
         },
-      },
-      select: MATCH_SELECT,
+        select: MATCH_SELECT,
+      });
+
+      if (match) {
+        await conversationsService.ensureConversationForMatch(match.id, tx);
+      }
+
+      return match;
     });
   }
 }

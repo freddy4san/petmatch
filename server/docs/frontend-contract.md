@@ -88,3 +88,95 @@ asset without a stored public id.
 - `409`: pet image changed during an image mutation; retry the operation.
 - `502`: Cloudinary upload failed.
 
+## Conversations And Messages
+
+Conversations are created by the backend when a mutual pet match is created.
+Frontend clients must not send a sender id; the backend uses the authenticated
+user from the JWT.
+
+### Conversation Shape
+
+```json
+{
+  "id": "conversation_id",
+  "matchId": "match_id",
+  "createdAt": "2026-04-23T00:00:00.000Z",
+  "updatedAt": "2026-04-23T00:00:00.000Z",
+  "match": {
+    "id": "match_id",
+    "petIds": ["pet_1", "pet_2"],
+    "createdAt": "2026-04-23T00:00:00.000Z",
+    "currentPet": {
+      "id": "pet_1",
+      "name": "Milo",
+      "type": "Dog",
+      "breed": "Corgi",
+      "age": 3,
+      "imageUrl": "https://res.cloudinary.com/...",
+      "primaryImage": {
+        "url": "https://res.cloudinary.com/..."
+      }
+    },
+    "otherPet": {
+      "id": "pet_2",
+      "name": "Luna",
+      "type": "Cat",
+      "breed": "Tabby",
+      "age": 2,
+      "imageUrl": null,
+      "primaryImage": null
+    }
+  },
+  "lastMessage": null
+}
+```
+
+### Message Shape
+
+```json
+{
+  "id": "message_id",
+  "conversationId": "conversation_id",
+  "senderUserId": "user_id",
+  "body": "Hi there!",
+  "createdAt": "2026-04-23T00:00:00.000Z"
+}
+```
+
+### List Conversations
+
+`GET /api/conversations`
+
+- Auth required.
+- Returns conversations for matches involving one of the authenticated user's
+  pets.
+- Conversations are ordered by most recently updated first.
+
+### List Match Messages
+
+`GET /api/matches/:matchId/messages`
+
+- Auth required.
+- Only users who own one of the matched pets can access messages.
+- Returns `404` when the match does not exist or is not accessible to the
+  authenticated user.
+- Messages are ordered oldest first.
+
+### Send Match Message
+
+`POST /api/matches/:matchId/messages`
+
+- Auth required.
+- Only users who own one of the matched pets can send messages.
+- Request JSON:
+
+```json
+{
+  "body": "Hi there!"
+}
+```
+
+- `body` is trimmed, required, and limited to 2000 characters.
+- Returns the created message.
+- Returns `404` when the match does not exist or is not accessible to the
+  authenticated user.

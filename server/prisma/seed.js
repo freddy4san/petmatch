@@ -274,6 +274,18 @@ async function resetDemoData(client) {
 
 async function main() {
   const password = await bcrypt.hash(DEMO_PASSWORD, 10);
+  const demoMatches = MATCHED_PET_PAIRS.map(([leftPetId, rightPetId], index) => {
+    const [pet1Id, pet2Id] = canonicalPetPair(leftPetId, rightPetId);
+    const createdAt = new Date("2026-04-21T09:00:00.000Z");
+    createdAt.setMinutes(createdAt.getMinutes() + index * 37);
+
+    return {
+      id: `match_demo_${index + 1}`,
+      pet1Id,
+      pet2Id,
+      createdAt,
+    };
+  });
 
   await prisma.$transaction(async (tx) => {
     await resetDemoData(tx);
@@ -307,18 +319,16 @@ async function main() {
     });
 
     await tx.match.createMany({
-      data: MATCHED_PET_PAIRS.map(([leftPetId, rightPetId], index) => {
-        const [pet1Id, pet2Id] = canonicalPetPair(leftPetId, rightPetId);
-        const createdAt = new Date("2026-04-21T09:00:00.000Z");
-        createdAt.setMinutes(createdAt.getMinutes() + index * 37);
+      data: demoMatches,
+    });
 
-        return {
-          id: `match_demo_${index + 1}`,
-          pet1Id,
-          pet2Id,
-          createdAt,
-        };
-      }),
+    await tx.conversation.createMany({
+      data: demoMatches.map((match) => ({
+        id: `conversation_${match.id}`,
+        matchId: match.id,
+        createdAt: match.createdAt,
+        updatedAt: match.createdAt,
+      })),
     });
   });
 
@@ -327,7 +337,7 @@ async function main() {
   console.info(`- ${DEMO_PETS.length} pets with public image URLs`);
   console.info(`- ${DEMO_INTERACTIONS.length} swipes/interactions`);
   console.info(`- ${MATCHED_PET_PAIRS.length} matches`);
-  console.info("- Messages skipped: schema.prisma does not define a Message model yet");
+  console.info(`- ${MATCHED_PET_PAIRS.length} conversations`);
   console.info(`Demo login: ${DEMO_USERS[0].email} / ${DEMO_PASSWORD}`);
 }
 
