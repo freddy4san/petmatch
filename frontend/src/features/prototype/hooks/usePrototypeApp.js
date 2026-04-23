@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getDiscoveryPets } from '../../discovery/api';
 import { createInteraction } from '../../interactions/api';
-import { getMatches } from '../../matches/api';
+import { getConversations, getMatchMessages, sendMatchMessage } from '../../matches/api';
 import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
 
 const AUTH_STORAGE_KEY = 'petmatch-auth-session';
@@ -23,14 +23,6 @@ const PET_TYPE_EMOJI_MAP = {
   Rabbit: '🐇',
   Raccoon: '🦝'
 };
-
-const AUTO_RESPONSES = [
-  'That sounds great! My pet would love to meet yours.',
-  "Awesome! Let's arrange a playdate soon.",
-  'Perfect! What day works best for you?',
-  'My pet is so excited to make new friends!',
-  'Great idea! How about this weekend?'
-];
 
 export function usePrototypeApp() {
   const [authSession, setAuthSession] = useState(() => readStoredAuthSession());
@@ -59,6 +51,12 @@ export function usePrototypeApp() {
   const [interactionError, setInteractionError] = useState('');
   const [isMatchesLoading, setIsMatchesLoading] = useState(false);
   const [matchesError, setMatchesError] = useState('');
+  const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState('');
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const activeChatIdRef = useRef(null);
+  const latestMessageRequestRef = useRef(0);
+  const latestSendRequestRef = useRef(0);
 
   const activeUserPet = userPets[0] ?? null;
   const currentPet = discoveryPets[0] ?? null;
@@ -100,12 +98,47 @@ export function usePrototypeApp() {
     setMatchesError('');
 
     try {
-      const nextMatches = await getMatches(authSession.token);
-      setMatches(nextMatches.map(mapApiMatchToViewModel));
+      const conversations = await getConversations(authSession.token);
+      setMatches((conversations || []).map(mapApiConversationToViewModel));
     } catch (error) {
       setMatchesError(error.message);
     } finally {
       setIsMatchesLoading(false);
+    }
+  }, [authSession]);
+
+  const loadMessages = useCallback(async (matchId) => {
+    if (!authSession?.token || !matchId) {
+      return;
+    }
+
+    const requestId = latestMessageRequestRef.current + 1;
+    latestMessageRequestRef.current = requestId;
+    setIsMessagesLoading(true);
+    setMessagesError('');
+
+    try {
+      const messages = await getMatchMessages(authSession.token, matchId);
+      const currentUserId = getAuthenticatedUserId(authSession);
+
+      if (latestMessageRequestRef.current !== requestId || activeChatIdRef.current !== matchId) {
+        return;
+      }
+
+      setChatMessages((prev) => ({
+        ...prev,
+        [matchId]: (messages || []).map((message) => mapApiMessageToViewModel(message, currentUserId))
+      }));
+    } catch (error) {
+      if (latestMessageRequestRef.current !== requestId || activeChatIdRef.current !== matchId) {
+        return;
+      }
+
+      setMessagesError(error.message);
+    } finally {
+      if (latestMessageRequestRef.current === requestId && activeChatIdRef.current === matchId) {
+        setIsMessagesLoading(false);
+      }
     }
   }, [authSession]);
 
@@ -115,6 +148,7 @@ export function usePrototypeApp() {
       setDiscoveryPets([]);
       setMatches([]);
       setLikedPets([]);
+      setChatMessages({});
       setEditingPetId(null);
       setPetDraft(EMPTY_PET_FORM);
       return;
@@ -218,45 +252,68 @@ export function usePrototypeApp() {
     }
   };
 
-  const openChat = (pet) => {
-    setCurrentChatPetId(pet.id);
+  const openChat = (match) => {
+    activeChatIdRef.current = match.id;
+    setCurrentChatPetId(match.id);
+    setMessagesError('');
+    setIsSendingMessage(false);
+    setNewMessage('');
     setCurrentScreen('chat');
+    loadMessages(match.id);
   };
 
-  const handleSendMessage = () => {
-    if (!newMessage.trim() || !currentChatPetId) {
+  const handleSendMessage = async () => {
+    const messageBody = newMessage.trim();
+
+    const targetMatchId = currentChatPetId;
+
+    if (!messageBody || !targetMatchId || isSendingMessage) {
       return;
     }
 
-    const outgoingMessage = {
-      id: `message-${Date.now()}`,
-      text: newMessage,
-      time: 'Just now',
-      sent: true
-    };
+    if (!authSession?.token) {
+      setMessagesError('Please sign in again to send a message.');
+      return;
+    }
 
-    setChatMessages((prev) => ({
-      ...prev,
-      [currentChatPetId]: [...(prev[currentChatPetId] || []), outgoingMessage]
-    }));
-    setNewMessage('');
+    const requestId = latestSendRequestRef.current + 1;
+    latestSendRequestRef.current = requestId;
+    const token = authSession.token;
+    setIsSendingMessage(true);
+    setMessagesError('');
 
-    window.setTimeout(() => {
-      const responseMessage = {
-        id: `response-${Date.now()}`,
-        text: AUTO_RESPONSES[Math.floor(Math.random() * AUTO_RESPONSES.length)],
-        time: 'Just now',
-        sent: false
-      };
+    try {
+      const createdMessage = await sendMatchMessage(token, targetMatchId, messageBody);
+      const currentUserId = getAuthenticatedUserId(authSession);
+      const nextMessage = mapApiMessageToViewModel(createdMessage, currentUserId, true);
+
+      if (latestSendRequestRef.current !== requestId || activeChatIdRef.current !== targetMatchId) {
+        return;
+      }
 
       setChatMessages((prev) => ({
         ...prev,
-        [currentChatPetId]: [...(prev[currentChatPetId] || []), responseMessage]
+        [targetMatchId]: [...(prev[targetMatchId] || []), nextMessage]
       }));
-    }, 2000);
+      setMatches((prev) => updateMatchLastMessage(prev, targetMatchId, createdMessage));
+      setNewMessage('');
+    } catch (error) {
+      if (latestSendRequestRef.current !== requestId || activeChatIdRef.current !== targetMatchId) {
+        return;
+      }
+
+      setMessagesError(error.message);
+    } finally {
+      if (latestSendRequestRef.current === requestId && activeChatIdRef.current === targetMatchId) {
+        setIsSendingMessage(false);
+      }
+    }
   };
 
   const handleLogout = () => {
+    activeChatIdRef.current = null;
+    latestMessageRequestRef.current += 1;
+    latestSendRequestRef.current += 1;
     clearStoredAuthSession();
     setAuthSession(null);
     setMatches([]);
@@ -272,6 +329,9 @@ export function usePrototypeApp() {
     setDiscoveryError('');
     setInteractionError('');
     setMatchesError('');
+    setMessagesError('');
+    setIsMessagesLoading(false);
+    setIsSendingMessage(false);
     setCurrentScreen('welcome');
   };
 
@@ -444,14 +504,17 @@ export function usePrototypeApp() {
     isEditingExistingPet: Boolean(editingPetId),
     isInteracting,
     isMatchesLoading,
+    isMessagesLoading,
     isPetsLoading,
     isSavingPet,
+    isSendingMessage,
     discoveryError,
     discoveryPets,
     interactionError,
     likedPets,
     matches,
     matchesError,
+    messagesError,
     maxDistance,
     newMessage,
     notificationsEnabled,
@@ -582,6 +645,35 @@ function mapApiMatchToViewModel(match) {
   };
 }
 
+function mapApiConversationToViewModel(conversation) {
+  return {
+    ...mapApiMatchToViewModel(conversation.match || {}),
+    conversationCreatedAt: conversation.createdAt,
+    conversationId: conversation.id,
+    id: conversation.match?.id || conversation.matchId,
+    lastMessage: conversation.lastMessage || null,
+    matchId: conversation.matchId,
+    updatedAt: conversation.updatedAt
+  };
+}
+
+function mapApiMessageToViewModel(message, currentUserId, forceSent = false) {
+  return {
+    ...message,
+    sent: forceSent || Boolean(currentUserId && message.senderUserId === currentUserId),
+    text: message.body || '',
+    time: formatMessageTime(message.createdAt)
+  };
+}
+
+function updateMatchLastMessage(matches, matchId, message) {
+  return matches.map((match) => (
+    match.id === matchId
+      ? { ...match, lastMessage: message, updatedAt: message.createdAt || match.updatedAt }
+      : match
+  ));
+}
+
 function mapPetToForm(pet) {
   return {
     age: String(pet.age),
@@ -598,4 +690,55 @@ function mapPetToForm(pet) {
 
 function getPetEmoji(type) {
   return PET_TYPE_EMOJI_MAP[type] || '🐾';
+}
+
+function getAuthenticatedUserId(authSession) {
+  return authSession?.user?.id
+    || authSession?.userId
+    || authSession?.id
+    || getUserIdFromToken(authSession?.token);
+}
+
+function getUserIdFromToken(token) {
+  if (!token || typeof window === 'undefined' || typeof window.atob !== 'function') {
+    return '';
+  }
+
+  const [, payload] = token.split('.');
+
+  if (!payload) {
+    return '';
+  }
+
+  try {
+    const normalizedPayload = padBase64(payload.replace(/-/g, '+').replace(/_/g, '/'));
+    const parsedPayload = JSON.parse(window.atob(normalizedPayload));
+
+    return parsedPayload.sub || parsedPayload.userId || parsedPayload.id || '';
+  } catch {
+    return '';
+  }
+}
+
+function padBase64(value) {
+  const paddingLength = (4 - (value.length % 4)) % 4;
+
+  return `${value}${'='.repeat(paddingLength)}`;
+}
+
+function formatMessageTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    hour: 'numeric',
+    minute: '2-digit'
+  }).format(date);
 }

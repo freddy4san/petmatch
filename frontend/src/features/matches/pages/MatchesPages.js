@@ -1,7 +1,7 @@
 import { ArrowLeft, ChevronLeft, Send } from 'lucide-react';
 
 export function MatchesPage({ app }) {
-  const { chatMessages, isMatchesLoading, matches, matchesError, openChat, setCurrentScreen } = app;
+  const { isMatchesLoading, matches, matchesError, openChat, setCurrentScreen } = app;
 
   return (
     <div className="bg-gray-50 flex flex-col pb-4">
@@ -39,20 +39,15 @@ export function MatchesPage({ app }) {
             <div className="flex-1 min-w-0">
               <div className="font-semibold">{match.name} & Owner</div>
               <div className="text-sm text-gray-600 truncate">
-                {chatMessages[match.id]?.length > 0
-                  ? chatMessages[match.id][chatMessages[match.id].length - 1].text
-                  : getMatchPreview(match)}
+                {getMatchPreview(match)}
               </div>
             </div>
             <div className="text-right flex-shrink-0">
-              <div className="text-xs text-gray-400 mb-1">Just now</div>
-              {!chatMessages[match.id] || chatMessages[match.id].length <= 1 ? (
-                <div onClick={() => alert('Marked as read!')} className="bg-green-500 text-white rounded-full px-2 py-0.5 text-xs font-bold cursor-pointer">New</div>
-              ) : null}
+              <div className="text-xs text-gray-400 mb-1">{formatConversationTime(match.lastMessage?.createdAt || match.updatedAt)}</div>
             </div>
           </div>
         )) : null}
-        {!isMatchesLoading && matches.length === 0 ? (
+        {!isMatchesLoading && matches.length === 0 && !matchesError ? (
           <div className="flex flex-col items-center justify-center h-full">
             <div className="text-6xl mb-4">💬</div>
             <p className="text-gray-600 font-semibold mb-2">No matches yet</p>
@@ -66,14 +61,46 @@ export function MatchesPage({ app }) {
 }
 
 function getMatchPreview(match) {
+  if (match.lastMessage?.body) {
+    return match.lastMessage.body;
+  }
+
   const petDetails = match.breed || match.type;
 
   return petDetails ? `${petDetails} is ready to chat` : 'Ready to chat';
 }
 
+function formatConversationTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    month: 'short',
+    day: 'numeric'
+  }).format(date);
+}
+
 export function ChatPage({ app }) {
-  const { chatMessages, currentChatPet, handleSendMessage, matches, newMessage, setCurrentScreen, setNewMessage } = app;
+  const {
+    chatMessages,
+    currentChatPet,
+    handleSendMessage,
+    isMessagesLoading,
+    isSendingMessage,
+    messagesError,
+    newMessage,
+    setCurrentScreen,
+    setNewMessage
+  } = app;
   const messages = currentChatPet ? chatMessages[currentChatPet.id] || [] : [];
+  const canSend = Boolean(newMessage.trim()) && !isSendingMessage && Boolean(currentChatPet);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
@@ -88,12 +115,27 @@ export function ChatPage({ app }) {
         )}
         <div className="flex-1 min-w-0">
           <div className="font-bold truncate">{currentChatPet?.name || 'Pet'} & Owner</div>
-          <div className="text-xs opacity-90">{matches.length > 0 ? 'Active now' : 'Start a match first'}</div>
+          <div className="text-xs opacity-90">{currentChatPet ? 'Matched conversation' : 'Start a match first'}</div>
         </div>
         <button className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-xl flex-shrink-0 hover:bg-opacity-30">📞</button>
       </div>
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="text-center text-xs text-gray-400 mb-4">Today</div>
+        {messagesError ? (
+          <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-600">{messagesError}</p>
+        ) : null}
+        {isMessagesLoading && messages.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+            Loading messages...
+          </div>
+        ) : null}
+        {!isMessagesLoading && messages.length === 0 && !messagesError ? (
+          <div className="flex h-full flex-col items-center justify-center text-center">
+            <div className="text-5xl mb-4">💬</div>
+            <p className="font-semibold text-gray-700">No messages yet</p>
+            <p className="mt-1 max-w-64 text-sm text-gray-500">Send the first message to start the conversation.</p>
+          </div>
+        ) : null}
         {messages.map((message) => (
           <div key={message.id} className={`mb-4 ${message.sent ? 'text-right' : ''}`}>
             <div className={`inline-block ${message.sent ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white rounded-2xl rounded-br-sm' : 'bg-white rounded-2xl rounded-bl-sm'} p-3 shadow-sm max-w-xs`}>
@@ -103,13 +145,19 @@ export function ChatPage({ app }) {
           </div>
         ))}
       </div>
-      <div className="bg-white border-t border-gray-200 p-4 flex items-center gap-2">
-        <button className="text-purple-600 text-xl flex-shrink-0">📎</button>
-        <input type="text" placeholder="Type a message..." value={newMessage} onChange={(event) => setNewMessage(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') { handleSendMessage(); } }} className="flex-1 px-4 py-3 bg-gray-100 rounded-full focus:ring-2 focus:ring-purple-500 outline-none" />
-        <button onClick={handleSendMessage} className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white flex-shrink-0 hover:shadow-lg">
+      <form
+        className="bg-white border-t border-gray-200 p-4 flex items-center gap-2"
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleSendMessage();
+        }}
+      >
+        <button type="button" className="text-purple-600 text-xl flex-shrink-0">📎</button>
+        <input type="text" placeholder="Type a message..." value={newMessage} onChange={(event) => setNewMessage(event.target.value)} disabled={!currentChatPet || isSendingMessage} className="flex-1 px-4 py-3 bg-gray-100 rounded-full focus:ring-2 focus:ring-purple-500 outline-none disabled:opacity-60" />
+        <button type="submit" disabled={!canSend} className="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-white flex-shrink-0 hover:shadow-lg disabled:opacity-50">
           <Send size={18} />
         </button>
-      </div>
+      </form>
     </div>
   );
 }

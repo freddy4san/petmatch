@@ -23,18 +23,10 @@ export function useAuthForm({ mode, onAuthSuccess, onNavigate }) {
   const handleSignupSubmit = async (event) => {
     event.preventDefault();
 
-    if (!formData.email.trim() || !formData.password) {
-      setErrorMessage('Email and password are required.');
-      return;
-    }
+    const signupError = validateSignupForm(formData);
 
-    if (!formData.fullName.trim() || !formData.phoneNumber.trim()) {
-      setErrorMessage('Full name and phone number are required.');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setErrorMessage('Passwords do not match.');
+    if (signupError) {
+      setErrorMessage(signupError);
       return;
     }
 
@@ -93,4 +85,42 @@ export function useAuthForm({ mode, onAuthSuccess, onNavigate }) {
     isSubmitting,
     mode
   };
+}
+
+function validateSignupForm(formData) {
+  const messages = [];
+
+  if (!formData.fullName.trim()) {
+    messages.push('Full name is required.');
+  }
+
+  if (!formData.email.trim()) {
+    messages.push('Email address is required.');
+  }
+
+  if (!formData.phoneNumber.trim()) {
+    messages.push('Phone number is required.');
+  }
+
+  messages.push(...getPasswordValidationMessages(formData.password, formData.confirmPassword));
+
+  return messages.join(' ');
+}
+
+function getPasswordValidationMessages(password, confirmPassword) {
+  const messages = [];
+
+  if (!password) {
+    messages.push('Password is required.');
+  } else if (password.length < 8) {
+    messages.push('Password is too weak: use at least 8 characters.');
+  }
+
+  if (!confirmPassword) {
+    messages.push('Please confirm your password.');
+  } else if (password && password !== confirmPassword) {
+    messages.push('Passwords do not match: type the same password in both fields.');
+  }
+
+  return messages;
 }

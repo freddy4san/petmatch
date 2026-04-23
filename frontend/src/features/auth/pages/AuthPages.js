@@ -106,6 +106,7 @@ export function SignupPage({ app, onNavigate }) {
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
             <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Create password" />
+            <p className="mt-2 text-xs text-gray-500">Use at least 8 characters.</p>
           </div>
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>

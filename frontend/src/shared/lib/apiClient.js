@@ -17,7 +17,7 @@ export async function apiFetch(path, options = {}) {
   const payload = await response.json().catch(() => null);
 
   if (!response.ok) {
-    throw new Error(payload?.error || 'Request failed');
+    throw new Error(getApiErrorMessage(payload));
   }
 
   return payload?.data;
@@ -30,4 +30,12 @@ function buildApiUrl(path) {
 
 function normalizeApiBaseUrl(value) {
   return value.endsWith('/') ? value.slice(0, -1) : value;
+}
+
+function getApiErrorMessage(payload) {
+  if (Array.isArray(payload?.details) && payload.details.length > 0) {
+    return payload.details.map((detail) => detail.message).join(' ');
+  }
+
+  return payload?.error || 'Request failed';
 }
