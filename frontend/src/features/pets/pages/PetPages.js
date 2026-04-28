@@ -9,6 +9,7 @@ export function PetSetupPage({ app, onNavigate }) {
     isSavingPet,
     petFormError,
     saveEditingPet,
+    skipPetSetup,
     updateEditingPet
   } = app;
 
@@ -28,6 +29,17 @@ export function PetSetupPage({ app, onNavigate }) {
           <button onClick={saveEditingPet} disabled={isSavingPet} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold hover:shadow-lg transition-all disabled:opacity-70">
             {isSavingPet ? 'Saving Pet...' : 'Continue to App'}
           </button>
+          <button
+            type="button"
+            onClick={skipPetSetup}
+            disabled={isSavingPet}
+            className="mt-3 w-full rounded-full border border-gray-200 bg-white py-4 font-semibold text-purple-600 transition-colors hover:border-purple-300 hover:bg-purple-50 disabled:opacity-70"
+          >
+            Add pet later
+          </button>
+          <p className="mt-3 text-center text-xs text-gray-500">
+            You can add your pet anytime from your profile.
+          </p>
         </div>
       </div>
     </div>

@@ -68,6 +68,7 @@ export function usePrototypeApp() {
   const [discoveryError, setDiscoveryError] = useState('');
   const [isInteracting, setIsInteracting] = useState(false);
   const [interactionError, setInteractionError] = useState('');
+  const [matchCelebration, setMatchCelebration] = useState(null);
   const [isMatchesLoading, setIsMatchesLoading] = useState(false);
   const [matchesError, setMatchesError] = useState('');
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
@@ -342,6 +343,11 @@ export function usePrototypeApp() {
       }
 
       if (interactionResult.match) {
+        setMatchCelebration({
+          id: interactionResult.match.id,
+          matchedPet: currentPet,
+          userPet: activeUserPet
+        });
         await loadMatches();
       }
 
@@ -394,6 +400,15 @@ export function usePrototypeApp() {
     setNewMessage('');
     setCurrentScreen('chat');
     loadMessages(match.id);
+  };
+
+  const dismissMatchCelebration = () => {
+    setMatchCelebration(null);
+  };
+
+  const viewCelebratedMatch = () => {
+    setMatchCelebration(null);
+    setCurrentScreen('matches');
   };
 
   const refreshMessages = () => {
@@ -525,6 +540,15 @@ export function usePrototypeApp() {
     setPetDraft(EMPTY_PET_FORM);
     setPetFormOriginScreen('petSetup');
     setCurrentScreen('petSetup');
+  };
+
+  const skipPetSetup = () => {
+    setPetFormError('');
+    setEditingPetId(null);
+    revokeObjectUrl(petDraft.imagePreviewUrl);
+    setPetDraft(EMPTY_PET_FORM);
+    setPetFormOriginScreen('profile');
+    setCurrentScreen('home');
   };
 
   const removePet = async (pet) => {
@@ -687,6 +711,7 @@ export function usePrototypeApp() {
     interactionError,
     likedPets,
     matches,
+    matchCelebration,
     matchesFilter,
     matchesError,
     messagesError,
@@ -709,11 +734,14 @@ export function usePrototypeApp() {
     setShowDistance,
     setTheme,
     showDistance,
+    skipPetSetup,
     startPetSetup,
     startEditingPet,
     theme,
     unreadMatchCount,
     updateEditingPet,
+    dismissMatchCelebration,
+    viewCelebratedMatch,
     userPets
   };
 }

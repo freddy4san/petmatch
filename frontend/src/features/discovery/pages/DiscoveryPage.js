@@ -1,4 +1,4 @@
-import { ArrowLeft, Heart, Star, X } from 'lucide-react';
+import { ArrowLeft, Heart, Sparkles, Star, X } from 'lucide-react';
 
 export default function DiscoveryPage({ app }) {
   const {
@@ -10,10 +10,13 @@ export default function DiscoveryPage({ app }) {
     interactionError,
     isDiscoveryLoading,
     isInteracting,
+    matchCelebration,
     isPetsLoading,
     matches,
     selectActiveUserPet,
     setCurrentScreen,
+    dismissMatchCelebration,
+    viewCelebratedMatch,
     userPets = []
   } = app;
 
@@ -109,6 +112,58 @@ export default function DiscoveryPage({ app }) {
         ) : null}
         <div className="mt-6 text-center">
           <button onClick={() => setCurrentScreen('matches')} className="text-purple-600 font-semibold text-sm hover:underline">View Matches ({matches.length})</button>
+        </div>
+      </div>
+      {matchCelebration ? (
+        <MatchCelebration
+          celebration={matchCelebration}
+          onClose={dismissMatchCelebration}
+          onViewMatches={viewCelebratedMatch}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function MatchCelebration({ celebration, onClose, onViewMatches }) {
+  const petName = celebration?.matchedPet?.name || 'your new match';
+  const userPetName = celebration?.userPet?.name || 'your pet';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-purple-950/70 p-6 text-white">
+      <div className="absolute inset-0 animate-pulse bg-white/20" />
+      <div className="absolute left-8 top-16 h-24 w-24 animate-ping rounded-full bg-pink-300/30" />
+      <div className="absolute bottom-20 right-10 h-28 w-28 animate-ping rounded-full bg-indigo-300/30 [animation-delay:200ms]" />
+      <div className="absolute inset-x-0 top-1/3 mx-auto h-40 w-40 animate-ping rounded-full bg-white/10 [animation-delay:400ms]" />
+
+      <div className="relative w-full max-w-sm rounded-3xl bg-white px-6 py-8 text-center text-gray-900 shadow-2xl">
+        <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-gradient-to-br from-pink-500 to-purple-600 text-white shadow-lg">
+          <Heart className="fill-current" size={38} />
+        </div>
+        <div className="mb-3 flex items-center justify-center gap-2 text-purple-600">
+          <Sparkles size={18} />
+          <span className="text-sm font-bold uppercase tracking-wide">It is a match</span>
+          <Sparkles size={18} />
+        </div>
+        <h2 className="text-3xl font-black text-gray-950">You and {petName} connected!</h2>
+        <p className="mt-3 text-sm leading-6 text-gray-600">
+          {userPetName} just found someone special. Start a chat while the moment is fresh.
+        </p>
+        <div className="mt-7 space-y-3">
+          <button
+            type="button"
+            onClick={onViewMatches}
+            className="w-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 py-4 font-bold text-white shadow-lg transition-transform hover:scale-[1.02]"
+          >
+            View match
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full rounded-full border border-gray-200 bg-white py-4 font-semibold text-purple-600 transition-colors hover:bg-purple-50"
+          >
+            Keep discovering
+          </button>
         </div>
       </div>
     </div>
