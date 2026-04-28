@@ -9,7 +9,12 @@ import {
 } from '../../auth/session';
 import { getDiscoveryPets } from '../../discovery/api';
 import { createInteraction } from '../../interactions/api';
-import { getMatchConversations, getMatchMessages, sendMatchMessage } from '../../matches/api';
+import {
+  getMatchConversations,
+  getMatchMessages,
+  markConversationRead,
+  sendMatchMessage
+} from '../../matches/api';
 import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
 import {
   getImageCleanupWarning,
@@ -88,7 +93,7 @@ export function usePrototypeApp() {
     [petDraft]
   );
   const unreadMatchCount = useMemo(
-    () => matches.filter((match) => match.hasUnread).length,
+    () => matches.reduce((total, match) => total + (Number(match.unreadCount) || 0), 0),
     [matches]
   );
   const navigateToScreen = useCallback((screen) => {
@@ -172,7 +177,7 @@ export function usePrototypeApp() {
         }
       });
       setMatches((prev) => prev.map((match) => (
-        match.id === matchId ? { ...match, hasUnread: false } : match
+        match.id === matchId ? { ...match, hasUnread: false, unreadCount: 0 } : match
       )));
     } catch (error) {
       if (latestMessageRequestRef.current !== requestId || activeChatIdRef.current !== matchId) {
@@ -359,15 +364,25 @@ export function usePrototypeApp() {
     }
   };
 
-  const markMatchRead = (match) => {
+  const markMatchRead = async (match) => {
     if (!match?.lastMessage?.id) {
       return;
     }
 
     readMessageIdsRef.current.add(match.lastMessage.id);
     setMatches((prev) => prev.map((item) => (
-      item.id === match.id ? { ...item, hasUnread: false } : item
+      item.id === match.id ? { ...item, hasUnread: false, unreadCount: 0 } : item
     )));
+
+    if (!authSession?.token || !match.conversationId) {
+      return;
+    }
+
+    try {
+      await markConversationRead(authSession.token, match.conversationId);
+    } catch {
+      // Opening the chat should stay responsive even if persisting read state fails.
+    }
   };
 
   const openChat = (match) => {
@@ -781,19 +796,31 @@ function mapApiMatchToViewModel(match) {
 
 function mapApiConversationToViewModel(conversation, currentUserId = '', readMessageIds = new Set()) {
   const lastMessage = conversation.lastMessage || null;
+  const unreadCount = Number(conversation.unreadCount) || 0;
+  const hasBackendUnreadState = typeof conversation.hasUnread === 'boolean' || conversation.unreadCount !== undefined;
+  const lastMessageSentByCurrentUser = Boolean(
+    currentUserId &&
+    lastMessage?.senderUserId === currentUserId
+  );
+  const fallbackHasUnread = Boolean(
+    lastMessage?.id &&
+    !lastMessageSentByCurrentUser &&
+    !readMessageIds.has(lastMessage.id)
+  );
 
   return {
     ...mapApiMatchToViewModel(conversation.match || {}),
     conversationCreatedAt: conversation.createdAt,
     conversationId: conversation.id,
     id: conversation.match?.id || conversation.matchId,
-    hasUnread: Boolean(
-      lastMessage?.id &&
-      lastMessage.senderUserId !== currentUserId &&
-      !readMessageIds.has(lastMessage.id)
-    ),
+    hasUnread: hasBackendUnreadState ? Boolean(conversation.hasUnread || unreadCount > 0) : fallbackHasUnread,
+    lastActivityAt: conversation.latestMessageAt || lastMessage?.createdAt || conversation.updatedAt,
+    lastMessageSentByCurrentUser,
     lastMessage,
+    lastMessagePreview: conversation.lastMessagePreview || lastMessage?.body || '',
+    lastReadAt: conversation.lastReadAt || null,
     matchId: conversation.matchId,
+    unreadCount: hasBackendUnreadState ? unreadCount : (fallbackHasUnread ? 1 : 0),
     updatedAt: conversation.updatedAt
   };
 }
@@ -810,7 +837,16 @@ function mapApiMessageToViewModel(message, currentUserId, forceSent = false) {
 function updateMatchLastMessage(matches, matchId, message) {
   return matches.map((match) => (
     match.id === matchId
-      ? { ...match, hasUnread: false, lastMessage: message, updatedAt: message.createdAt || match.updatedAt }
+      ? {
+          ...match,
+          hasUnread: false,
+          lastActivityAt: message.createdAt || match.updatedAt,
+          lastMessage: message,
+          lastMessagePreview: message.body || '',
+          lastMessageSentByCurrentUser: true,
+          unreadCount: 0,
+          updatedAt: message.createdAt || match.updatedAt
+        }
       : match
   ));
 }

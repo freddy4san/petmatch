@@ -39,7 +39,7 @@ describe('MatchesPage', () => {
   it('shows a conversations loading state', () => {
     render(<MatchesPage app={createBaseApp({ isMatchesLoading: true })} />);
 
-    expect(screen.getByText(/loading matches/i)).toBeInTheDocument();
+    expect(screen.getByText(/loading conversations/i)).toBeInTheDocument();
   });
 
   it('shows an empty state when there are no conversations', () => {
@@ -63,6 +63,23 @@ describe('MatchesPage', () => {
     fireEvent.click(screen.getByText(/milo & owner/i));
 
     expect(openChat).toHaveBeenCalledWith(match);
+  });
+
+  it('shows unread counts and last message previews', () => {
+    render(<MatchesPage app={createBaseApp({
+      matches: [
+        createMatch({
+          hasUnread: true,
+          lastMessagePreview: 'Are you free for a walk?',
+          unreadCount: 3
+        })
+      ],
+      unreadMatchCount: 3
+    })} />);
+
+    expect(screen.getByText('Unread (3)')).toBeInTheDocument();
+    expect(screen.getByText('3')).toBeInTheDocument();
+    expect(screen.getByText('Are you free for a walk?')).toBeInTheDocument();
   });
 });
 

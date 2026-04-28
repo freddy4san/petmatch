@@ -14,6 +14,14 @@ export function getConversations(token) {
 
 export const getMatchConversations = getConversations;
 
+export function markConversationRead(token, conversationId) {
+  return apiFetch(`/conversations/${conversationId}/read`, {
+    method: 'POST',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify({})
+  });
+}
+
 export function getMatchMessages(token, matchId) {
   return apiFetch(`/matches/${matchId}/messages`, {
     headers: getAuthHeaders(token)

@@ -1,4 +1,4 @@
-import { getConversations, getMatchMessages, sendMatchMessage } from './api';
+import { getConversations, getMatchMessages, markConversationRead, sendMatchMessage } from './api';
 
 function mockApiResponse(data) {
   global.fetch.mockResolvedValueOnce({
@@ -44,6 +44,27 @@ describe('matches chat api', () => {
         headers: expect.objectContaining({
           Authorization: 'Bearer token-1'
         })
+      })
+    );
+  });
+
+  it('marks a conversation as read', async () => {
+    mockApiResponse({ conversationId: 'conversation-1', unreadCount: 0 });
+
+    await expect(markConversationRead('token-1', 'conversation-1')).resolves.toEqual({
+      conversationId: 'conversation-1',
+      unreadCount: 0
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:3001/api/conversations/conversation-1/read',
+      expect.objectContaining({
+        body: JSON.stringify({}),
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-1',
+          'Content-Type': 'application/json'
+        }),
+        method: 'POST'
       })
     );
   });
