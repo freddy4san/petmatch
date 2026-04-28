@@ -251,7 +251,7 @@ function PetFormFields({ pet, updateEditingPet }) {
             <input
               id={imageInputId}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png,image/webp,image/gif"
               className="sr-only"
               onChange={(event) => {
                 const file = event.target.files?.[0];

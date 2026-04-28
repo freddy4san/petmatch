@@ -1,11 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { getCurrentUser } from '../../auth/api';
+import {
+  clearStoredAuthSession,
+  hasStoredAuthSession,
+  readStoredAuthSession,
+  storeAuthSession
+} from '../../auth/session';
 import { getDiscoveryPets } from '../../discovery/api';
 import { createInteraction } from '../../interactions/api';
-import { getConversations, getMatchMessages, sendMatchMessage } from '../../matches/api';
+import { getMatchConversations, getMatchMessages, sendMatchMessage } from '../../matches/api';
 import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
+import {
+  getImageCleanupWarning,
+  getImageMutationErrorMessage,
+  validatePetImageFile
+} from '../../pets/imageValidation';
 
-const AUTH_STORAGE_KEY = 'petmatch-auth-session';
+const UNAUTHORIZED_EVENT_NAME = 'petmatch:unauthorized';
 const EMPTY_PET_FORM = {
   age: '',
   breed: '',
@@ -23,10 +35,11 @@ const PET_TYPE_EMOJI_MAP = {
   Rabbit: '🐇',
   Raccoon: '🦝'
 };
+const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup']);
 
 export function usePrototypeApp() {
   const [authSession, setAuthSession] = useState(() => readStoredAuthSession());
-  const [currentScreen, setCurrentScreen] = useState('welcome');
+  const [currentScreen, setCurrentScreen] = useState(() => (authSession?.token ? 'home' : 'welcome'));
   const [matches, setMatches] = useState([]);
   const [likedPets, setLikedPets] = useState([]);
   const [discoveryPets, setDiscoveryPets] = useState([]);
@@ -38,6 +51,7 @@ export function usePrototypeApp() {
   const [maxDistance, setMaxDistance] = useState(25);
   const [theme, setTheme] = useState('light');
   const [userPets, setUserPets] = useState([]);
+  const [activeUserPetId, setActiveUserPetId] = useState('');
   const [isPetsLoading, setIsPetsLoading] = useState(false);
   const [isSavingPet, setIsSavingPet] = useState(false);
   const [petsError, setPetsError] = useState('');
@@ -54,11 +68,16 @@ export function usePrototypeApp() {
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [matchesFilter, setMatchesFilter] = useState('all');
   const activeChatIdRef = useRef(null);
   const latestMessageRequestRef = useRef(0);
   const latestSendRequestRef = useRef(0);
+  const readMessageIdsRef = useRef(new Set());
 
-  const activeUserPet = userPets[0] ?? null;
+  const activeUserPet = useMemo(
+    () => userPets.find((pet) => pet.id === activeUserPetId) || userPets[0] || null,
+    [activeUserPetId, userPets]
+  );
   const currentPet = discoveryPets[0] ?? null;
   const currentChatPet = useMemo(
     () => matches.find((match) => match.id === currentChatPetId) ?? null,
@@ -68,9 +87,21 @@ export function usePrototypeApp() {
     () => petDraft,
     [petDraft]
   );
+  const unreadMatchCount = useMemo(
+    () => matches.filter((match) => match.hasUnread).length,
+    [matches]
+  );
+  const navigateToScreen = useCallback((screen) => {
+    if (isProtectedScreen(screen) && !authSession?.token && !hasStoredAuthSession()) {
+      setCurrentScreen('welcome');
+      return;
+    }
+
+    setCurrentScreen(screen);
+  }, [authSession?.token]);
 
   const loadDiscoveryPets = useCallback(async () => {
-    if (!authSession?.token) {
+    if (!authSession?.token || !activeUserPet?.id) {
       setDiscoveryPets([]);
       return;
     }
@@ -79,14 +110,17 @@ export function usePrototypeApp() {
     setDiscoveryError('');
 
     try {
-      const pets = await getDiscoveryPets(authSession.token, { limit: 10 });
+      const pets = await getDiscoveryPets(authSession.token, {
+        fromPetId: activeUserPet.id,
+        limit: 10
+      });
       setDiscoveryPets(pets.map(mapApiPetToViewModel));
     } catch (error) {
       setDiscoveryError(error.message);
     } finally {
       setIsDiscoveryLoading(false);
     }
-  }, [authSession]);
+  }, [activeUserPet?.id, authSession]);
 
   const loadMatches = useCallback(async () => {
     if (!authSession?.token) {
@@ -98,8 +132,11 @@ export function usePrototypeApp() {
     setMatchesError('');
 
     try {
-      const conversations = await getConversations(authSession.token);
-      setMatches((conversations || []).map(mapApiConversationToViewModel));
+      const conversations = await getMatchConversations(authSession.token);
+      const currentUserId = getAuthenticatedUserId(authSession);
+      setMatches((conversations || []).map((conversation) => (
+        mapApiConversationToViewModel(conversation, currentUserId, readMessageIdsRef.current)
+      )));
     } catch (error) {
       setMatchesError(error.message);
     } finally {
@@ -129,6 +166,14 @@ export function usePrototypeApp() {
         ...prev,
         [matchId]: (messages || []).map((message) => mapApiMessageToViewModel(message, currentUserId))
       }));
+      (messages || []).forEach((message) => {
+        if (message.senderUserId !== currentUserId) {
+          readMessageIdsRef.current.add(message.id);
+        }
+      });
+      setMatches((prev) => prev.map((match) => (
+        match.id === matchId ? { ...match, hasUnread: false } : match
+      )));
     } catch (error) {
       if (latestMessageRequestRef.current !== requestId || activeChatIdRef.current !== matchId) {
         return;
@@ -151,6 +196,9 @@ export function usePrototypeApp() {
       setChatMessages({});
       setEditingPetId(null);
       setPetDraft(EMPTY_PET_FORM);
+      setActiveUserPetId('');
+      setMatchesFilter('all');
+      readMessageIdsRef.current = new Set();
       return;
     }
 
@@ -167,7 +215,11 @@ export function usePrototypeApp() {
           return;
         }
 
-        setUserPets(pets.map(mapApiPetToViewModel));
+        const nextPets = pets.map(mapApiPetToViewModel);
+        setUserPets(nextPets);
+        setActiveUserPetId((prev) => (
+          nextPets.some((pet) => pet.id === prev) ? prev : nextPets[0]?.id || ''
+        ));
       } catch (error) {
         if (!isMounted) {
           return;
@@ -193,9 +245,63 @@ export function usePrototypeApp() {
       return;
     }
 
+    let isMounted = true;
+    const token = authSession.token;
+
+    const verifySession = async () => {
+      try {
+        const user = await getCurrentUser(token);
+
+        if (!isMounted) {
+          return;
+        }
+
+        setAuthSession((prev) => {
+          if (!prev || prev.token !== token) {
+            return prev;
+          }
+
+          const nextSession = {
+            ...prev,
+            user,
+          };
+
+          storeAuthSession(nextSession);
+          return nextSession;
+        });
+      } catch (error) {
+        if (isMounted && error.statusCode !== 401) {
+          setPetsError(error.message);
+        }
+      }
+    };
+
+    verifySession();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [authSession?.token]);
+
+  useEffect(() => {
+    if (!authSession?.token) {
+      return;
+    }
+
     loadDiscoveryPets();
     loadMatches();
   }, [authSession, loadDiscoveryPets, loadMatches]);
+
+  useEffect(() => {
+    setDiscoveryPets([]);
+    setInteractionError('');
+  }, [activeUserPet?.id]);
+
+  useEffect(() => {
+    if (!authSession?.token && isProtectedScreen(currentScreen)) {
+      setCurrentScreen('welcome');
+    }
+  }, [authSession?.token, currentScreen]);
 
   const handleSwipe = async (liked) => {
     if (!currentPet) {
@@ -240,6 +346,7 @@ export function usePrototypeApp() {
     } catch (error) {
       if (error.message === 'Interaction already exists') {
         setDiscoveryPets((prev) => prev.filter((pet) => pet.id !== currentPet.id));
+        setInteractionError('You already responded to this pet from the selected pet profile.');
         if (discoveryPets.length <= 1) {
           await loadDiscoveryPets();
         }
@@ -252,7 +359,19 @@ export function usePrototypeApp() {
     }
   };
 
+  const markMatchRead = (match) => {
+    if (!match?.lastMessage?.id) {
+      return;
+    }
+
+    readMessageIdsRef.current.add(match.lastMessage.id);
+    setMatches((prev) => prev.map((item) => (
+      item.id === match.id ? { ...item, hasUnread: false } : item
+    )));
+  };
+
   const openChat = (match) => {
+    markMatchRead(match);
     activeChatIdRef.current = match.id;
     setCurrentChatPetId(match.id);
     setMessagesError('');
@@ -260,6 +379,12 @@ export function usePrototypeApp() {
     setNewMessage('');
     setCurrentScreen('chat');
     loadMessages(match.id);
+  };
+
+  const refreshMessages = () => {
+    if (currentChatPetId) {
+      loadMessages(currentChatPetId);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -310,7 +435,7 @@ export function usePrototypeApp() {
     }
   };
 
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     activeChatIdRef.current = null;
     latestMessageRequestRef.current += 1;
     latestSendRequestRef.current += 1;
@@ -333,11 +458,29 @@ export function usePrototypeApp() {
     setIsMessagesLoading(false);
     setIsSendingMessage(false);
     setCurrentScreen('welcome');
-  };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return undefined;
+    }
+
+    window.addEventListener(UNAUTHORIZED_EVENT_NAME, handleLogout);
+
+    return () => {
+      window.removeEventListener(UNAUTHORIZED_EVENT_NAME, handleLogout);
+    };
+  }, [handleLogout]);
 
   const handleAuthSuccess = (session) => {
     setAuthSession(session);
     storeAuthSession(session);
+  };
+
+  const selectActiveUserPet = (petId) => {
+    setActiveUserPetId(petId);
+    setDiscoveryPets([]);
+    setInteractionError('');
   };
 
   const getActiveNav = (screen) => {
@@ -383,8 +526,13 @@ export function usePrototypeApp() {
 
     try {
       setPetsError('');
-      await deletePet(authSession.token, petId);
-      setUserPets((prev) => prev.filter((pet) => pet.id !== petId));
+      const deleteResult = await deletePet(authSession.token, petId);
+      const nextPets = userPets.filter((pet) => pet.id !== petId);
+      setUserPets(nextPets);
+      setActiveUserPetId((currentPetId) => (
+        currentPetId === petId ? nextPets[0]?.id || '' : currentPetId
+      ));
+      setPetsError(getImageCleanupWarning(deleteResult));
 
       if (editingPetId === petId) {
         setEditingPetId(null);
@@ -399,6 +547,13 @@ export function usePrototypeApp() {
     setPetFormError('');
     setPetDraft((prev) => {
       if (field === 'imageFile') {
+        const imageValidationError = validatePetImageFile(value);
+
+        if (imageValidationError) {
+          setPetFormError(imageValidationError);
+          return prev;
+        }
+
         revokeObjectUrl(prev.imagePreviewUrl);
 
         return {
@@ -466,18 +621,21 @@ export function usePrototypeApp() {
 
         if (!wasEditingExistingPet) {
           setEditingPetId(savedProfilePet.id);
+          setActiveUserPetId(savedProfilePet.id);
         }
 
-        setPetFormError(`Pet details saved, but the image update failed: ${imageError.message}`);
+        setPetFormError(getImageMutationErrorMessage(imageError));
         return;
       }
 
       setUserPets((prev) => upsertPetInList(prev, savedPet, wasEditingExistingPet));
+      setActiveUserPetId((prev) => prev || savedPet.id);
       setEditingPetId(null);
       revokeObjectUrl(petDraft.imagePreviewUrl);
       setPetDraft(EMPTY_PET_FORM);
       loadDiscoveryPets();
       loadMatches();
+      setPetsError(getImageCleanupWarning(savedPet));
       setCurrentScreen(petFormOriginScreen === 'petSetup' ? 'home' : 'profile');
     } catch (error) {
       setPetFormError(error.message);
@@ -488,6 +646,7 @@ export function usePrototypeApp() {
 
   return {
     activeUserPet,
+    activeUserPetId,
     addPet,
     authSession,
     chatMessages,
@@ -513,6 +672,7 @@ export function usePrototypeApp() {
     interactionError,
     likedPets,
     matches,
+    matchesFilter,
     matchesError,
     messagesError,
     maxDistance,
@@ -521,9 +681,13 @@ export function usePrototypeApp() {
     openChat,
     petFormError,
     petsError,
+    refreshMatches: loadMatches,
+    refreshMessages,
     removePet,
     saveEditingPet,
-    setCurrentScreen,
+    selectActiveUserPet,
+    setCurrentScreen: navigateToScreen,
+    setMatchesFilter,
     setMaxDistance,
     setNewMessage,
     setNotificationsEnabled,
@@ -533,44 +697,14 @@ export function usePrototypeApp() {
     startPetSetup,
     startEditingPet,
     theme,
+    unreadMatchCount,
     updateEditingPet,
     userPets
   };
 }
 
-function readStoredAuthSession() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-
-  const storedValue = window.localStorage.getItem(AUTH_STORAGE_KEY);
-
-  if (!storedValue) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(storedValue);
-  } catch {
-    window.localStorage.removeItem(AUTH_STORAGE_KEY);
-    return null;
-  }
-}
-
-function storeAuthSession(session) {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(session));
-}
-
-function clearStoredAuthSession() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  window.localStorage.removeItem(AUTH_STORAGE_KEY);
+function isProtectedScreen(screen) {
+  return !PUBLIC_SCREENS.has(screen);
 }
 
 function validatePetDraft(petDraft) {
@@ -645,13 +779,20 @@ function mapApiMatchToViewModel(match) {
   };
 }
 
-function mapApiConversationToViewModel(conversation) {
+function mapApiConversationToViewModel(conversation, currentUserId = '', readMessageIds = new Set()) {
+  const lastMessage = conversation.lastMessage || null;
+
   return {
     ...mapApiMatchToViewModel(conversation.match || {}),
     conversationCreatedAt: conversation.createdAt,
     conversationId: conversation.id,
     id: conversation.match?.id || conversation.matchId,
-    lastMessage: conversation.lastMessage || null,
+    hasUnread: Boolean(
+      lastMessage?.id &&
+      lastMessage.senderUserId !== currentUserId &&
+      !readMessageIds.has(lastMessage.id)
+    ),
+    lastMessage,
     matchId: conversation.matchId,
     updatedAt: conversation.updatedAt
   };
@@ -669,7 +810,7 @@ function mapApiMessageToViewModel(message, currentUserId, forceSent = false) {
 function updateMatchLastMessage(matches, matchId, message) {
   return matches.map((match) => (
     match.id === matchId
-      ? { ...match, lastMessage: message, updatedAt: message.createdAt || match.updatedAt }
+      ? { ...match, hasUnread: false, lastMessage: message, updatedAt: message.createdAt || match.updatedAt }
       : match
   ));
 }

@@ -1,10 +1,4 @@
-import { apiFetch } from '../../shared/lib/apiClient';
-
-function getAuthHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
+import { apiFetch, getAuthHeaders } from '../../shared/lib/apiClient';
 
 export function getMatches(token) {
   return apiFetch('/matches', {
@@ -17,6 +11,8 @@ export function getConversations(token) {
     headers: getAuthHeaders(token)
   });
 }
+
+export const getMatchConversations = getConversations;
 
 export function getMatchMessages(token, matchId) {
   return apiFetch(`/matches/${matchId}/messages`, {

@@ -165,64 +165,92 @@ async function getAccessibleConversation(matchId, userId) {
   };
 }
 
-async function getConversations(userId) {
-  const matches = await prisma.match.findMany({
+async function findAccessibleConversation(matchId, userId) {
+  const match = await findAccessibleMatch(matchId, userId);
+  const conversation = await prisma.conversation.findUnique({
     where: {
-      OR: [
-        {
-          pet1: {
-            ownerId: userId,
-          },
-        },
-        {
-          pet2: {
-            ownerId: userId,
-          },
-        },
-      ],
+      matchId: match.id,
     },
     select: {
       id: true,
-      pet1Id: true,
-      pet2Id: true,
+      matchId: true,
       createdAt: true,
-      pet1: {
-        select: MATCH_PET_SELECT,
+      updatedAt: true,
+    },
+  });
+
+  if (!conversation) {
+    return null;
+  }
+
+  return {
+    ...conversation,
+    match,
+  };
+}
+
+async function getConversations(userId) {
+  const conversations = await prisma.conversation.findMany({
+    where: {
+      match: {
+        OR: [
+          {
+            pet1: {
+              ownerId: userId,
+            },
+          },
+          {
+            pet2: {
+              ownerId: userId,
+            },
+          },
+        ],
       },
-      pet2: {
-        select: MATCH_PET_SELECT,
+    },
+    orderBy: {
+      updatedAt: "desc",
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      matchId: true,
+      updatedAt: true,
+      match: {
+        select: {
+          id: true,
+          pet1Id: true,
+          pet2Id: true,
+          createdAt: true,
+          pet1: {
+            select: MATCH_PET_SELECT,
+          },
+          pet2: {
+            select: MATCH_PET_SELECT,
+          },
+        },
+      },
+      messages: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        select: MESSAGE_SELECT,
       },
     },
   });
 
-  const conversations = await Promise.all(
-    matches.map(async (match) => {
-      const conversation = await ensureConversationForMatch(match.id);
-      const lastMessage = await prisma.message.findFirst({
-        where: {
-          conversationId: conversation.id,
-        },
-        orderBy: {
-          createdAt: "desc",
-        },
-        select: MESSAGE_SELECT,
-      });
-
-      return {
-        ...conversation,
-        match,
-        messages: lastMessage ? [lastMessage] : [],
-      };
-    })
+  return conversations.map((conversation) =>
+    sanitizeConversation(conversation, userId)
   );
-
-  return conversations
-    .sort((left, right) => right.updatedAt - left.updatedAt)
-    .map((conversation) => sanitizeConversation(conversation, userId));
 }
 
 async function getMessages(userId, matchId) {
-  const conversation = await getAccessibleConversation(matchId, userId);
+  const conversation = await findAccessibleConversation(matchId, userId);
+
+  if (!conversation) {
+    return [];
+  }
+
   const messages = await prisma.message.findMany({
     where: {
       conversationId: conversation.id,

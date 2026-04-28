@@ -1,13 +1,19 @@
-import { apiFetch } from '../../shared/lib/apiClient';
+import { apiFetch, getAuthHeaders } from '../../shared/lib/apiClient';
 
-function getAuthHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
+export function getDiscoveryPets(token, { cursor, fromPetId, limit = 10 } = {}) {
+  const params = new URLSearchParams({
+    limit: String(limit)
+  });
 
-export function getDiscoveryPets(token, { limit = 10 } = {}) {
-  return apiFetch(`/discovery?limit=${limit}`, {
+  if (cursor) {
+    params.set('cursor', cursor);
+  }
+
+  if (fromPetId) {
+    params.set('fromPetId', fromPetId);
+  }
+
+  return apiFetch(`/discovery?${params.toString()}`, {
     headers: getAuthHeaders(token)
   });
 }

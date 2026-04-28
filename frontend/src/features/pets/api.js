@@ -1,10 +1,4 @@
-import { apiFetch } from '../../shared/lib/apiClient';
-
-function getAuthHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`
-  };
-}
+import { apiFetch, getAuthHeaders } from '../../shared/lib/apiClient';
 
 export function getUserPets(token) {
   return apiFetch('/pets', {

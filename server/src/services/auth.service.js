@@ -1,3 +1,4 @@
+const { Prisma } = require("@prisma/client");
 const bcrypt = require("bcrypt");
 const prisma = require("../lib/prisma");
 const { signToken } = require("../lib/jwt");
@@ -13,6 +14,23 @@ function sanitizeUser(user) {
     phoneNumber: user.phoneNumber,
     createdAt: user.createdAt,
   };
+}
+
+function isUniqueConstraintError(error) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2002"
+  );
+}
+
+function getDuplicateUserError(error) {
+  const target = error.meta?.target || [];
+
+  if (target.includes("phoneNumber")) {
+    return createHttpError(400, "Phone number already exists");
+  }
+
+  return createHttpError(400, "User already exists");
 }
 
 async function registerUser({ email, fullName, password, phoneNumber }) {
@@ -39,14 +57,24 @@ async function registerUser({ email, fullName, password, phoneNumber }) {
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
 
-  const user = await prisma.user.create({
-    data: {
-      email: normalizedEmail,
-      fullName: normalizedFullName,
-      password: hashedPassword,
-      phoneNumber: normalizedPhoneNumber,
-    },
-  });
+  let user;
+
+  try {
+    user = await prisma.user.create({
+      data: {
+        email: normalizedEmail,
+        fullName: normalizedFullName,
+        password: hashedPassword,
+        phoneNumber: normalizedPhoneNumber,
+      },
+    });
+  } catch (error) {
+    if (isUniqueConstraintError(error)) {
+      throw getDuplicateUserError(error);
+    }
+
+    throw error;
+  }
 
   const token = signToken({ userId: user.id, email: user.email });
 
@@ -81,7 +109,20 @@ async function loginUser({ email, password }) {
   };
 }
 
+async function getCurrentUser(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw createHttpError(401, "Invalid or expired token");
+  }
+
+  return sanitizeUser(user);
+}
+
 module.exports = {
+  getCurrentUser,
   registerUser,
   loginUser,
 };

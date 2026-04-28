@@ -1,5 +1,45 @@
 # Frontend Contract
 
+## Health
+
+`GET /health` and `GET /api/health`
+
+- Auth not required.
+- Returns `200` when the API can reach the database.
+- Returns `503` when the service or database is unavailable.
+
+## Auth
+
+### Current User
+
+`GET /api/auth/me`
+
+- Auth required.
+- Returns the authenticated user without password data.
+- Returns `401` when the token is missing, invalid, expired, or points to a
+  deleted user.
+
+## Discovery And Interactions
+
+### Discovery
+
+`GET /api/discovery?fromPetId=pet_id&limit=10&cursor=last_pet_id`
+
+- Auth required.
+- `fromPetId` is optional for backwards compatibility. When provided, discovery
+  excludes pets already liked or passed by that selected pet only.
+- `cursor` is optional and returns pets with ids after the cursor in the stable
+  feed order.
+- The frontend should pass the currently selected user pet as `fromPetId`.
+
+### Duplicate Interactions
+
+`POST /api/interactions`
+
+- A selected pet can only respond to a target pet once.
+- Repeating the same interaction is idempotent and returns the existing result.
+- Trying to change an existing response, such as pass to like, returns `409`.
+
 ## Pet Images
 
 Pet images are uploaded to Cloudinary by the backend. Frontend clients must not write
@@ -88,6 +128,9 @@ asset without a stored public id.
 - `409`: pet image changed during an image mutation; retry the operation.
 - `502`: Cloudinary upload failed.
 
+Frontend clients should show `oldImageDeleteStatus: "failed"` or
+`imageDeleteStatus: "failed"` as a cleanup warning, not as a failed pet save.
+
 ## Conversations And Messages
 
 Conversations are created by the backend when a mutual pet match is created.
@@ -150,6 +193,8 @@ user from the JWT.
 - Auth required.
 - Returns conversations for matches involving one of the authenticated user's
   pets.
+- Listing conversations is read-only. Conversations are created when matches are
+  created or when the first message is sent for an older match.
 - Conversations are ordered by most recently updated first.
 
 ### List Match Messages

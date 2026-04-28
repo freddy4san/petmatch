@@ -1,4 +1,5 @@
 const prisma = require("../lib/prisma");
+const { createHttpError } = require("../lib/helpers");
 
 const DISCOVERY_PET_SELECT = {
   id: true,
@@ -25,12 +26,8 @@ function sanitizeDiscoveryPet(pet) {
   };
 }
 
-async function getDiscoveryPets(userId, { limit }) {
-  const userPets = await prisma.pet.findMany({
-    where: { ownerId: userId },
-    select: { id: true },
-  });
-  const userPetIds = userPets.map((pet) => pet.id);
+async function getDiscoveryPets(userId, { cursor, fromPetId, limit }) {
+  const userPetIds = await getDiscoverySourcePetIds(userId, fromPetId);
 
   if (userPetIds.length === 0) {
     return [];
@@ -41,6 +38,13 @@ async function getDiscoveryPets(userId, { limit }) {
       ownerId: {
         not: userId,
       },
+      ...(cursor
+        ? {
+            id: {
+              gt: cursor,
+            },
+          }
+        : {}),
       receivedInteractions: {
         none: {
           fromPetId: {
@@ -76,3 +80,30 @@ async function getDiscoveryPets(userId, { limit }) {
 module.exports = {
   getDiscoveryPets,
 };
+
+async function getDiscoverySourcePetIds(userId, fromPetId) {
+  if (fromPetId) {
+    const pet = await prisma.pet.findFirst({
+      where: {
+        id: fromPetId,
+        ownerId: userId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!pet) {
+      throw createHttpError(404, "Source pet not found");
+    }
+
+    return [pet.id];
+  }
+
+  const userPets = await prisma.pet.findMany({
+    where: { ownerId: userId },
+    select: { id: true },
+  });
+
+  return userPets.map((pet) => pet.id);
+}

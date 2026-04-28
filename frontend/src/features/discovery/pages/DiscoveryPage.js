@@ -12,7 +12,9 @@ export default function DiscoveryPage({ app }) {
     isInteracting,
     isPetsLoading,
     matches,
-    setCurrentScreen
+    selectActiveUserPet,
+    setCurrentScreen,
+    userPets = []
   } = app;
 
   return (
@@ -37,6 +39,25 @@ export default function DiscoveryPage({ app }) {
             <button onClick={() => setCurrentScreen('profile')} className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg">
               Go to Profile
             </button>
+          </div>
+        ) : null}
+        {activeUserPet && userPets.length > 1 ? (
+          <div className="mb-4 rounded-2xl bg-white p-4 shadow-sm">
+            <label className="mb-2 block text-sm font-semibold text-gray-700" htmlFor="active-discovery-pet">
+              Discovering as
+            </label>
+            <select
+              id="active-discovery-pet"
+              value={activeUserPet.id}
+              onChange={(event) => selectActiveUserPet(event.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm font-semibold text-gray-800 outline-none focus:ring-2 focus:ring-purple-500"
+            >
+              {userPets.map((pet) => (
+                <option key={pet.id} value={pet.id}>
+                  {pet.name} · {pet.breed}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
         {activeUserPet && isDiscoveryLoading && !currentPet ? (

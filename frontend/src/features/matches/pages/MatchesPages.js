@@ -1,7 +1,20 @@
-import { ArrowLeft, ChevronLeft, Send } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, RefreshCw, Send } from 'lucide-react';
 
 export function MatchesPage({ app }) {
-  const { isMatchesLoading, matches, matchesError, openChat, setCurrentScreen } = app;
+  const {
+    isMatchesLoading,
+    matches,
+    matchesError,
+    matchesFilter = 'all',
+    openChat,
+    refreshMatches = () => {},
+    setCurrentScreen,
+    setMatchesFilter = () => {},
+    unreadMatchCount = 0
+  } = app;
+  const visibleMatches = matchesFilter === 'unread'
+    ? matches.filter((match) => match.hasUnread)
+    : matches;
 
   return (
     <div className="bg-gray-50 flex flex-col pb-4">
@@ -10,12 +23,16 @@ export function MatchesPage({ app }) {
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Messages</h1>
-        <div className="w-10"></div>
+        <button onClick={refreshMatches} disabled={isMatchesLoading} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 disabled:opacity-50">
+          <RefreshCw size={18} />
+        </button>
       </div>
       <div className="flex border-b border-gray-200 bg-white">
-        {['All', 'Matches', 'Unread'].map((tab, index) => (
-          <div key={tab} className={`flex-1 py-4 text-center font-semibold ${index === 0 ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>{tab}</div>
-        ))}
+        <button onClick={() => setMatchesFilter('all')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'all' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>All</button>
+        <button onClick={() => setMatchesFilter('matches')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'matches' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>Matches</button>
+        <button onClick={() => setMatchesFilter('unread')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'unread' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>
+          Unread{unreadMatchCount ? ` (${unreadMatchCount})` : ''}
+        </button>
       </div>
       <div className="flex-1 p-4 overflow-y-auto">
         {matchesError ? (
@@ -26,7 +43,7 @@ export function MatchesPage({ app }) {
             Loading matches...
           </div>
         ) : null}
-        {matches.length > 0 ? matches.map((match) => (
+        {visibleMatches.length > 0 ? visibleMatches.map((match) => (
           <div key={match.id} onClick={() => openChat(match)} className="bg-white rounded-2xl p-4 mb-3 flex items-center gap-3 cursor-pointer hover:shadow-md transition-all">
             <div className="relative flex-shrink-0">
               {match.image ? (
@@ -34,7 +51,11 @@ export function MatchesPage({ app }) {
               ) : (
                 <div className="w-14 h-14 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center text-2xl">{match.emoji}</div>
               )}
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              {match.hasUnread ? (
+                <div className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-red-500"></div>
+              ) : (
+                <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
+              )}
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold">{match.name} & Owner</div>
@@ -53,6 +74,11 @@ export function MatchesPage({ app }) {
             <p className="text-gray-600 font-semibold mb-2">No matches yet</p>
             <p className="text-gray-500 text-sm mb-4">Start swiping to find your pet's perfect match!</p>
             <button onClick={() => setCurrentScreen('discovery')} className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-6 py-3 rounded-full font-semibold hover:shadow-lg">Start Discovering</button>
+          </div>
+        ) : null}
+        {!isMatchesLoading && matches.length > 0 && visibleMatches.length === 0 && !matchesError ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 text-center text-sm text-gray-500">
+            No unread conversations.
           </div>
         ) : null}
       </div>
@@ -96,6 +122,7 @@ export function ChatPage({ app }) {
     isSendingMessage,
     messagesError,
     newMessage,
+    refreshMessages = () => {},
     setCurrentScreen,
     setNewMessage
   } = app;
@@ -117,7 +144,9 @@ export function ChatPage({ app }) {
           <div className="font-bold truncate">{currentChatPet?.name || 'Pet'} & Owner</div>
           <div className="text-xs opacity-90">{currentChatPet ? 'Matched conversation' : 'Start a match first'}</div>
         </div>
-        <button className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center text-xl flex-shrink-0 hover:bg-opacity-30">📞</button>
+        <button onClick={refreshMessages} disabled={!currentChatPet || isMessagesLoading} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center flex-shrink-0 hover:bg-opacity-30 disabled:opacity-50">
+          <RefreshCw size={18} />
+        </button>
       </div>
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="text-center text-xs text-gray-400 mb-4">Today</div>
