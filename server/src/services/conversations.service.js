@@ -58,18 +58,24 @@ function sanitizeMessage(message) {
   };
 }
 
-function sanitizeConversation(conversation, userId) {
+function sanitizeConversation(conversation, userId, unreadCount = 0) {
   const match = conversation.match;
   const pet1IsOwned = match.pet1.ownerId === userId;
   const currentPet = pet1IsOwned ? match.pet1 : match.pet2;
   const otherPet = pet1IsOwned ? match.pet2 : match.pet1;
   const lastMessage = conversation.messages?.[0] || null;
+  const readState = conversation.readStates?.[0] || null;
+  const sanitizedLastMessage = sanitizeMessage(lastMessage);
 
   return {
     id: conversation.id,
     matchId: conversation.matchId,
     createdAt: conversation.createdAt,
     updatedAt: conversation.updatedAt,
+    latestMessageAt: lastMessage?.createdAt || null,
+    lastReadAt: readState?.lastReadAt || null,
+    unreadCount,
+    hasUnread: unreadCount > 0,
     match: {
       id: match.id,
       petIds: [match.pet1Id, match.pet2Id],
@@ -77,8 +83,27 @@ function sanitizeConversation(conversation, userId) {
       currentPet: sanitizePet(currentPet),
       otherPet: sanitizePet(otherPet),
     },
-    lastMessage: sanitizeMessage(lastMessage),
+    lastMessage: sanitizedLastMessage,
+    lastMessagePreview: sanitizedLastMessage?.body || null,
   };
+}
+
+async function getUnreadCount(conversationId, userId, lastReadAt) {
+  return prisma.message.count({
+    where: {
+      conversationId,
+      senderUserId: {
+        not: userId,
+      },
+      ...(lastReadAt
+        ? {
+            createdAt: {
+              gt: lastReadAt,
+            },
+          }
+        : {}),
+    },
+  });
 }
 
 async function ensureConversationForMatch(matchId, client = prisma) {
@@ -189,6 +214,40 @@ async function findAccessibleConversation(matchId, userId) {
   };
 }
 
+async function findAccessibleConversationById(conversationId, userId) {
+  const conversation = await prisma.conversation.findFirst({
+    where: {
+      id: conversationId,
+      match: {
+        OR: [
+          {
+            pet1: {
+              ownerId: userId,
+            },
+          },
+          {
+            pet2: {
+              ownerId: userId,
+            },
+          },
+        ],
+      },
+    },
+    select: {
+      id: true,
+      matchId: true,
+      createdAt: true,
+      updatedAt: true,
+    },
+  });
+
+  if (!conversation) {
+    throw createHttpError(404, "Conversation not found");
+  }
+
+  return conversation;
+}
+
 async function getConversations(userId) {
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -236,11 +295,30 @@ async function getConversations(userId) {
         take: 1,
         select: MESSAGE_SELECT,
       },
+      readStates: {
+        where: {
+          userId,
+        },
+        take: 1,
+        select: {
+          lastReadAt: true,
+          lastReadMessageId: true,
+        },
+      },
     },
   });
 
-  return conversations.map((conversation) =>
-    sanitizeConversation(conversation, userId)
+  return Promise.all(
+    conversations.map(async (conversation) => {
+      const readState = conversation.readStates?.[0] || null;
+      const unreadCount = await getUnreadCount(
+        conversation.id,
+        userId,
+        readState?.lastReadAt || null
+      );
+
+      return sanitizeConversation(conversation, userId, unreadCount);
+    })
   );
 }
 
@@ -295,9 +373,71 @@ async function createMessage(userId, matchId, { body }) {
   return sanitizeMessage(message);
 }
 
+async function markConversationRead(userId, conversationId) {
+  const conversation = await findAccessibleConversationById(
+    conversationId,
+    userId
+  );
+
+  const latestMessage = await prisma.message.findFirst({
+    where: {
+      conversationId: conversation.id,
+    },
+    orderBy: {
+      createdAt: "desc",
+    },
+    select: {
+      id: true,
+      createdAt: true,
+    },
+  });
+
+  const lastReadAt = latestMessage?.createdAt || new Date();
+  const lastReadMessageId = latestMessage?.id || null;
+
+  const readState = await prisma.conversationReadState.upsert({
+    where: {
+      conversationId_userId: {
+        conversationId: conversation.id,
+        userId,
+      },
+    },
+    create: {
+      conversationId: conversation.id,
+      userId,
+      lastReadAt,
+      lastReadMessageId,
+    },
+    update: {
+      lastReadAt,
+      lastReadMessageId,
+    },
+    select: {
+      lastReadAt: true,
+      lastReadMessageId: true,
+    },
+  });
+
+  const unreadCount = await getUnreadCount(
+    conversation.id,
+    userId,
+    readState.lastReadAt
+  );
+
+  return {
+    conversationId: conversation.id,
+    matchId: conversation.matchId,
+    lastReadAt: readState.lastReadAt,
+    lastReadMessageId: readState.lastReadMessageId,
+    unreadCount,
+    hasUnread: unreadCount > 0,
+  };
+}
+
 module.exports = {
   createMessage,
   ensureConversationForMatch,
   getConversations,
   getMessages,
+  markConversationRead,
 };

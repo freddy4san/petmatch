@@ -170,7 +170,12 @@ user from the JWT.
       "primaryImage": null
     }
   },
-  "lastMessage": null
+  "lastMessage": null,
+  "lastMessagePreview": null,
+  "latestMessageAt": null,
+  "lastReadAt": null,
+  "unreadCount": 0,
+  "hasUnread": false
 }
 ```
 
@@ -196,6 +201,39 @@ user from the JWT.
 - Listing conversations is read-only. Conversations are created when matches are
   created or when the first message is sent for an older match.
 - Conversations are ordered by most recently updated first.
+- `lastMessage` contains the newest message in the conversation, or `null` when
+  no messages have been sent.
+- `lastMessagePreview` is the newest message body, or `null` when no messages
+  have been sent.
+- `latestMessageAt` is the newest message timestamp, or `null` when no messages
+  have been sent.
+- `unreadCount` counts messages sent by the other user after the authenticated
+  user's last read timestamp.
+- `hasUnread` is `true` when `unreadCount` is greater than zero.
+
+### Mark Conversation Read
+
+`POST /api/conversations/:conversationId/read`
+
+- Auth required.
+- Only users who own one of the matched pets can mark a conversation as read.
+- Marks all messages currently in the conversation as read for the authenticated
+  user.
+- Request body may be omitted or an empty JSON object.
+- Returns `404` when the conversation does not exist or is not accessible to the
+  authenticated user.
+- Response:
+
+```json
+{
+  "conversationId": "conversation_id",
+  "matchId": "match_id",
+  "lastReadAt": "2026-04-23T00:00:00.000Z",
+  "lastReadMessageId": "message_id",
+  "unreadCount": 0,
+  "hasUnread": false
+}
+```
 
 ### List Match Messages
 

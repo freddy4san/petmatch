@@ -48,8 +48,25 @@ async function createMessage(req, res, next) {
   }
 }
 
+async function markRead(req, res, next) {
+  try {
+    const readState = await conversationsService.markConversationRead(
+      req.user.userId,
+      req.params.conversationId
+    );
+
+    return res.status(200).json({
+      success: true,
+      data: readState,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   createMessage,
   list,
   listMessages,
+  markRead,
 };

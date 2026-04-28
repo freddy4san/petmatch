@@ -8,6 +8,14 @@ const listConversationsSchema = z.object({
   query: z.object({}),
 });
 
+const markConversationReadSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({
+    conversationId: z.string().trim().min(1, "Conversation id is required"),
+  }),
+  query: z.object({}),
+});
+
 const listMatchMessagesSchema = z.object({
   body: z.object({}).optional().default({}),
   params: z.object({
@@ -37,4 +45,5 @@ module.exports = {
   createMatchMessageSchema,
   listConversationsSchema,
   listMatchMessagesSchema,
+  markConversationReadSchema,
 };
