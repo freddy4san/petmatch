@@ -19,6 +19,27 @@
 - Returns `401` when the token is missing, invalid, expired, or points to a
   deleted user.
 
+### Update Current User
+
+`PATCH /api/auth/me`
+
+- Auth required.
+- Accepts one or more owner profile fields:
+
+```json
+{
+  "fullName": "Alex Rivera",
+  "phoneNumber": "+15551001001",
+  "bio": "Weekend park regular who likes relaxed meetups.",
+  "city": "Melbourne"
+}
+```
+
+- `location` is accepted as an alias for `city`.
+- Returns the updated user. User responses include `city` and `location` with
+  the same value for compatibility.
+- Returns `400` when the phone number is already used by another account.
+
 ## Discovery And Interactions
 
 ### Discovery
@@ -31,6 +52,31 @@
 - `cursor` is optional and returns pets with ids after the cursor in the stable
   feed order.
 - The frontend should pass the currently selected user pet as `fromPetId`.
+- Discovery pet responses include profile fields and a lightweight `owner`
+  object for display:
+
+```json
+{
+  "id": "pet_id",
+  "name": "Milo",
+  "type": "Dog",
+  "breed": "Corgi",
+  "age": 3,
+  "bio": "Friendly park regular.",
+  "gender": "MALE",
+  "size": "MEDIUM",
+  "temperament": ["Friendly", "Playful"],
+  "city": "Melbourne",
+  "location": "Melbourne",
+  "owner": {
+    "id": "user_id",
+    "fullName": "Alex Rivera",
+    "bio": "Weekend park regular.",
+    "city": "Melbourne",
+    "location": "Melbourne"
+  }
+}
+```
 
 ### Duplicate Interactions
 
@@ -57,6 +103,12 @@ under `image`.
   "type": "Dog",
   "breed": "Corgi",
   "age": 3,
+  "bio": "Friendly park regular.",
+  "gender": "MALE",
+  "size": "MEDIUM",
+  "temperament": ["Friendly", "Playful"],
+  "city": "Melbourne",
+  "location": "Melbourne",
   "ownerId": "user_id",
   "imageUrl": "https://res.cloudinary.com/...",
   "image": {
@@ -88,9 +140,19 @@ asset without a stored public id.
   "name": "Milo",
   "type": "Dog",
   "breed": "Corgi",
-  "age": 3
+  "age": 3,
+  "bio": "Friendly park regular.",
+  "gender": "MALE",
+  "size": "MEDIUM",
+  "temperament": ["Friendly", "Playful"],
+  "city": "Melbourne"
 }
 ```
+
+- `gender` values: `MALE`, `FEMALE`, `UNKNOWN`.
+- `size` values: `SMALL`, `MEDIUM`, `LARGE`, `EXTRA_LARGE`.
+- `temperament` accepts up to 10 text values, each 40 characters or fewer.
+- `location` is accepted as an alias for `city`.
 
 ### Upload Or Replace Image
 

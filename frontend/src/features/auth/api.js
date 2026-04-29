@@ -19,3 +19,11 @@ export function getCurrentUser(token) {
     headers: getAuthHeaders(token)
   });
 }
+
+export function updateCurrentUser(token, data) {
+  return apiFetch('/auth/me', {
+    method: 'PATCH',
+    headers: getAuthHeaders(token),
+    body: JSON.stringify(data)
+  });
+}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getCurrentUser } from '../../auth/api';
+import { getCurrentUser, updateCurrentUser } from '../../auth/api';
 import {
   clearStoredAuthSession,
   hasStoredAuthSession,
@@ -25,12 +25,17 @@ import {
 const UNAUTHORIZED_EVENT_NAME = 'petmatch:unauthorized';
 const EMPTY_PET_FORM = {
   age: '',
+  bio: '',
   breed: '',
+  gender: '',
   imageFile: null,
   imagePreviewUrl: '',
   imageUrl: '',
+  isBioCustomized: false,
   name: '',
   shouldDeleteImage: false,
+  size: '',
+  temperament: [],
   type: 'Dog'
 };
 const PET_TYPE_EMOJI_MAP = {
@@ -58,7 +63,11 @@ export function usePrototypeApp() {
   const [userPets, setUserPets] = useState([]);
   const [activeUserPetId, setActiveUserPetId] = useState('');
   const [isPetsLoading, setIsPetsLoading] = useState(false);
+  const [isSavingProfileDetails, setIsSavingProfileDetails] = useState(false);
+  const [isSavingProfileLocation, setIsSavingProfileLocation] = useState(false);
   const [isSavingPet, setIsSavingPet] = useState(false);
+  const [profileDetailsError, setProfileDetailsError] = useState('');
+  const [profileLocationError, setProfileLocationError] = useState('');
   const [petsError, setPetsError] = useState('');
   const [petFormError, setPetFormError] = useState('');
   const [petDraft, setPetDraft] = useState(EMPTY_PET_FORM);
@@ -615,7 +624,24 @@ export function usePrototypeApp() {
         };
       }
 
-      return { ...prev, [field]: value };
+      if (field === 'temperament') {
+        return withAutoPetBio({
+          ...prev,
+          temperament: toggleValue(prev.temperament, value)
+        });
+      }
+
+      if (field === 'bio') {
+        return {
+          ...prev,
+          bio: value,
+          isBioCustomized: true
+        };
+      }
+
+      const nextDraft = { ...prev, [field]: value };
+
+      return AUTO_BIO_FIELDS.has(field) ? withAutoPetBio(nextDraft) : nextDraft;
     });
   };
 
@@ -634,8 +660,12 @@ export function usePrototypeApp() {
 
     const payload = {
       age: Number(petDraft.age),
+      bio: getNullableTrimmedValue(petDraft.bio),
       breed: petDraft.breed.trim(),
+      gender: petDraft.gender || null,
       name: petDraft.name.trim(),
+      size: petDraft.size || null,
+      temperament: normalizeTemperament(petDraft.temperament),
       type: petDraft.type.trim()
     };
 
@@ -683,12 +713,109 @@ export function usePrototypeApp() {
     }
   };
 
+  const saveProfileLocation = async (city) => {
+    if (!authSession?.token) {
+      setProfileLocationError('Please sign in again to update your location.');
+      return false;
+    }
+
+    const trimmedCity = city.trim();
+
+    if (!trimmedCity) {
+      setProfileLocationError('Location is required.');
+      return false;
+    }
+
+    if (trimmedCity.length > 120) {
+      setProfileLocationError('Location must be 120 characters or fewer.');
+      return false;
+    }
+
+    setIsSavingProfileLocation(true);
+    setProfileLocationError('');
+
+    try {
+      const user = await updateCurrentUser(authSession.token, {
+        city: trimmedCity
+      });
+
+      updateStoredUser(user);
+
+      return true;
+    } catch (error) {
+      setProfileLocationError(error.message);
+      return false;
+    } finally {
+      setIsSavingProfileLocation(false);
+    }
+  };
+
+  const saveProfileDetails = async ({ bio, city, fullName }) => {
+    if (!authSession?.token) {
+      setProfileDetailsError('Please sign in again to update your profile.');
+      return false;
+    }
+
+    const payload = {
+      bio: getNullableTrimmedValue(bio),
+      city: getNullableTrimmedValue(city),
+      fullName: getNullableTrimmedValue(fullName)
+    };
+
+    if (payload.fullName && payload.fullName.length > 120) {
+      setProfileDetailsError('Name must be 120 characters or fewer.');
+      return false;
+    }
+
+    if (payload.city && payload.city.length > 120) {
+      setProfileDetailsError('Location must be 120 characters or fewer.');
+      return false;
+    }
+
+    if (payload.bio && payload.bio.length > 500) {
+      setProfileDetailsError('Bio must be 500 characters or fewer.');
+      return false;
+    }
+
+    setIsSavingProfileDetails(true);
+    setProfileDetailsError('');
+
+    try {
+      const user = await updateCurrentUser(authSession.token, payload);
+
+      updateStoredUser(user);
+      return true;
+    } catch (error) {
+      setProfileDetailsError(error.message);
+      return false;
+    } finally {
+      setIsSavingProfileDetails(false);
+    }
+  };
+
+  const updateStoredUser = (user) => {
+    setAuthSession((prev) => {
+      if (!prev) {
+        return prev;
+      }
+
+      const nextSession = {
+        ...prev,
+        user,
+      };
+
+      storeAuthSession(nextSession);
+      return nextSession;
+    });
+  };
+
   return {
     activeUserPet,
     activeUserPetId,
     addPet,
     authSession,
     chatMessages,
+    clearProfileDetailsError: () => setProfileDetailsError(''),
     currentChatPet,
     currentPet,
     currentScreen,
@@ -704,6 +831,8 @@ export function usePrototypeApp() {
     isMatchesLoading,
     isMessagesLoading,
     isPetsLoading,
+    isSavingProfileDetails,
+    isSavingProfileLocation,
     isSavingPet,
     isSendingMessage,
     discoveryError,
@@ -721,10 +850,14 @@ export function usePrototypeApp() {
     openChat,
     petFormError,
     petsError,
+    profileDetailsError,
+    profileLocationError,
     refreshMatches: loadMatches,
     refreshMessages,
     removePet,
     saveEditingPet,
+    saveProfileDetails,
+    saveProfileLocation,
     selectActiveUserPet,
     setCurrentScreen: navigateToScreen,
     setMatchesFilter,
@@ -767,7 +900,90 @@ function validatePetDraft(petDraft) {
     return 'Please enter a valid age.';
   }
 
+  if (petDraft.bio.trim().length > 500) {
+    return 'Pet bio must be 500 characters or fewer.';
+  }
+
+  if (normalizeTemperament(petDraft.temperament).length > 10) {
+    return 'Choose up to 10 temperament traits.';
+  }
+
   return '';
+}
+
+function getNullableTrimmedValue(value) {
+  const trimmedValue = value.trim();
+
+  return trimmedValue || null;
+}
+
+function normalizeTemperament(values = []) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function toggleValue(values = [], value) {
+  return values.includes(value)
+    ? values.filter((currentValue) => currentValue !== value)
+    : [...values, value];
+}
+
+const AUTO_BIO_FIELDS = new Set([
+  'age',
+  'breed',
+  'gender',
+  'size',
+  'type'
+]);
+
+function withAutoPetBio(petDraft) {
+  if (petDraft.isBioCustomized) {
+    return petDraft;
+  }
+
+  return {
+    ...petDraft,
+    bio: getAutoPetBio(petDraft)
+  };
+}
+
+function getAutoPetBio(petDraft) {
+  const type = petDraft.type || 'pet';
+  const breed = petDraft.breed?.trim();
+  const age = petDraft.age !== '' && !Number.isNaN(Number(petDraft.age))
+    ? Number(petDraft.age)
+    : null;
+  const gender = formatEnumLabel(petDraft.gender).toLowerCase();
+  const size = formatEnumLabel(petDraft.size).toLowerCase();
+  const temperament = normalizeTemperament(petDraft.temperament);
+  const descriptionParts = [
+    gender,
+    size,
+    breed,
+    type
+  ].filter(Boolean);
+  const subject = descriptionParts.length > 0
+    ? descriptionParts.join(' ')
+    : type;
+  const agePhrase = age === null
+    ? ''
+    : ` of age ${age}`;
+  const temperamentPhrase = temperament.length > 0
+    ? ` with ${formatList(temperament.map((trait) => trait.toLowerCase()))} temperament`
+    : '';
+
+  return `I am a ${subject}${agePhrase}${temperamentPhrase}.`;
+}
+
+function formatList(values) {
+  if (values.length <= 1) {
+    return values[0] || '';
+  }
+
+  if (values.length === 2) {
+    return `${values[0]} and ${values[1]}`;
+  }
+
+  return `${values.slice(0, -1).join(', ')}, and ${values[values.length - 1]}`;
 }
 
 function createObjectPreviewUrl(file) {
@@ -798,8 +1014,17 @@ function mapApiPetToViewModel(pet) {
   return {
     ...pet,
     age: Number(pet.age || 0),
+    bio: pet.bio || '',
+    city: pet.city || pet.location || '',
     emoji: getPetEmoji(pet.type),
-    image: pet.primaryImage?.url || pet.imageUrl || ''
+    gender: pet.gender || '',
+    genderLabel: formatEnumLabel(pet.gender),
+    image: pet.primaryImage?.url || pet.imageUrl || '',
+    location: pet.location || pet.city || '',
+    owner: pet.owner || null,
+    size: pet.size || '',
+    sizeLabel: formatEnumLabel(pet.size),
+    temperament: Array.isArray(pet.temperament) ? pet.temperament : []
   };
 }
 
@@ -817,7 +1042,9 @@ function mapApiMatchToViewModel(match) {
     emoji: getPetEmoji(otherPet.type),
     image: otherPet.primaryImage?.url || otherPet.imageUrl || '',
     imageUrl: otherPet.imageUrl || otherPet.primaryImage?.url || '',
+    location: otherPet.location || otherPet.city || '',
     name: otherPet.name || 'Matched pet',
+    owner: otherPet.owner || null,
     type: otherPet.type || ''
   };
 }
@@ -882,15 +1109,32 @@ function updateMatchLastMessage(matches, matchId, message) {
 function mapPetToForm(pet) {
   return {
     age: String(pet.age),
+    bio: pet.bio ?? '',
     breed: pet.breed ?? '',
+    gender: pet.gender ?? '',
     id: pet.id,
     imageFile: null,
     imagePreviewUrl: '',
     imageUrl: pet.imageUrl ?? '',
+    isBioCustomized: Boolean(pet.bio),
     name: pet.name ?? '',
     shouldDeleteImage: false,
+    size: pet.size ?? '',
+    temperament: Array.isArray(pet.temperament) ? pet.temperament : [],
     type: pet.type ?? 'Dog'
   };
+}
+
+function formatEnumLabel(value) {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function getPetEmoji(type) {

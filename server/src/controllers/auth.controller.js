@@ -39,8 +39,22 @@ async function me(req, res, next) {
   }
 }
 
+async function updateMe(req, res, next) {
+  try {
+    const user = await authService.updateCurrentUser(req.user.userId, req.body);
+
+    return res.status(200).json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   me,
+  updateMe,
   register,
   login,
 };

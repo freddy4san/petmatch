@@ -5,6 +5,20 @@ const {
 } = require("../lib/cloudinary");
 const { createHttpError } = require("../lib/helpers");
 
+function sanitizeOwner(owner) {
+  if (!owner) {
+    return null;
+  }
+
+  return {
+    id: owner.id,
+    fullName: owner.fullName,
+    bio: owner.bio,
+    city: owner.city,
+    location: owner.city,
+  };
+}
+
 function sanitizePet(pet) {
   return {
     id: pet.id,
@@ -12,6 +26,12 @@ function sanitizePet(pet) {
     type: pet.type,
     breed: pet.breed,
     age: pet.age,
+    bio: pet.bio,
+    gender: pet.gender,
+    size: pet.size,
+    temperament: pet.temperament || [],
+    city: pet.city,
+    location: pet.city,
     imageUrl: pet.imageUrl,
     image: pet.imageUrl
       ? {
@@ -29,7 +49,34 @@ function sanitizePet(pet) {
         }
       : null,
     ownerId: pet.ownerId,
+    owner: sanitizeOwner(pet.owner),
   };
+}
+
+function getPetProfileData(input) {
+  const data = {};
+
+  if (input.bio !== undefined) {
+    data.bio = input.bio;
+  }
+
+  if (input.gender !== undefined) {
+    data.gender = input.gender;
+  }
+
+  if (input.size !== undefined) {
+    data.size = input.size;
+  }
+
+  if (input.temperament !== undefined) {
+    data.temperament = input.temperament;
+  }
+
+  if (input.city !== undefined || input.location !== undefined) {
+    data.city = input.city !== undefined ? input.city : input.location;
+  }
+
+  return data;
 }
 
 function getEmptyImageData() {
@@ -107,7 +154,7 @@ async function getUserPets(userId) {
   return pets.map(sanitizePet);
 }
 
-async function createPet(userId, { age, breed, name, type }) {
+async function createPet(userId, { age, breed, name, type, ...profileFields }) {
   const pet = await prisma.pet.create({
     data: {
       age,
@@ -115,13 +162,14 @@ async function createPet(userId, { age, breed, name, type }) {
       name: name.trim(),
       ownerId: userId,
       type: type.trim(),
+      ...getPetProfileData(profileFields),
     },
   });
 
   return sanitizePet(pet);
 }
 
-async function updatePet(userId, petId, { age, breed, name, type }) {
+async function updatePet(userId, petId, { age, breed, name, type, ...profileFields }) {
   await findOwnedPet(userId, petId);
 
   const pet = await prisma.pet.update({
@@ -131,6 +179,7 @@ async function updatePet(userId, petId, { age, breed, name, type }) {
       breed: breed.trim(),
       name: name.trim(),
       type: type.trim(),
+      ...getPetProfileData(profileFields),
     },
   });
 

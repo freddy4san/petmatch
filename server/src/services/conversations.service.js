@@ -9,8 +9,21 @@ const MATCH_PET_SELECT = {
   type: true,
   breed: true,
   age: true,
+  bio: true,
+  gender: true,
+  size: true,
+  temperament: true,
+  city: true,
   imageUrl: true,
   ownerId: true,
+  owner: {
+    select: {
+      id: true,
+      fullName: true,
+      bio: true,
+      city: true,
+    },
+  },
 };
 
 const MESSAGE_SELECT = {
@@ -35,10 +48,25 @@ function sanitizePet(pet) {
     type: pet.type,
     breed: pet.breed,
     age: pet.age,
+    bio: pet.bio,
+    gender: pet.gender,
+    size: pet.size,
+    temperament: pet.temperament || [],
+    city: pet.city,
+    location: pet.city,
     imageUrl: pet.imageUrl,
     primaryImage: pet.imageUrl
       ? {
           url: pet.imageUrl,
+        }
+      : null,
+    owner: pet.owner
+      ? {
+          id: pet.owner.id,
+          fullName: pet.owner.fullName,
+          bio: pet.owner.bio,
+          city: pet.owner.city,
+          location: pet.owner.city,
         }
       : null,
   };

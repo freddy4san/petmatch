@@ -12,6 +12,9 @@ function sanitizeUser(user) {
     email: user.email,
     fullName: user.fullName,
     phoneNumber: user.phoneNumber,
+    bio: user.bio,
+    city: user.city,
+    location: user.city,
     createdAt: user.createdAt,
   };
 }
@@ -20,6 +23,13 @@ function isUniqueConstraintError(error) {
   return (
     error instanceof Prisma.PrismaClientKnownRequestError &&
     error.code === "P2002"
+  );
+}
+
+function isRecordNotFoundError(error) {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === "P2025"
   );
 }
 
@@ -33,7 +43,15 @@ function getDuplicateUserError(error) {
   return createHttpError(400, "User already exists");
 }
 
-async function registerUser({ email, fullName, password, phoneNumber }) {
+async function registerUser({
+  bio,
+  city,
+  email,
+  fullName,
+  location,
+  password,
+  phoneNumber,
+}) {
   const normalizedEmail = email.trim().toLowerCase();
   const normalizedFullName = fullName.trim();
   const normalizedPhoneNumber = phoneNumber.trim();
@@ -64,6 +82,8 @@ async function registerUser({ email, fullName, password, phoneNumber }) {
       data: {
         email: normalizedEmail,
         fullName: normalizedFullName,
+        bio,
+        city: city !== undefined ? city : location,
         password: hashedPassword,
         phoneNumber: normalizedPhoneNumber,
       },
@@ -121,8 +141,56 @@ async function getCurrentUser(userId) {
   return sanitizeUser(user);
 }
 
+async function updateCurrentUser(userId, profileFields) {
+  const data = getUserProfileData(profileFields);
+
+  let user;
+
+  try {
+    user = await prisma.user.update({
+      where: { id: userId },
+      data,
+    });
+  } catch (error) {
+    if (isRecordNotFoundError(error)) {
+      throw createHttpError(401, "Invalid or expired token");
+    }
+
+    if (isUniqueConstraintError(error)) {
+      throw getDuplicateUserError(error);
+    }
+
+    throw error;
+  }
+
+  return sanitizeUser(user);
+}
+
+function getUserProfileData(input) {
+  const data = {};
+
+  if (input.fullName !== undefined) {
+    data.fullName = input.fullName;
+  }
+
+  if (input.phoneNumber !== undefined) {
+    data.phoneNumber = input.phoneNumber;
+  }
+
+  if (input.bio !== undefined) {
+    data.bio = input.bio;
+  }
+
+  if (input.city !== undefined || input.location !== undefined) {
+    data.city = input.city !== undefined ? input.city : input.location;
+  }
+
+  return data;
+}
+
 module.exports = {
   getCurrentUser,
   registerUser,
   loginUser,
+  updateCurrentUser,
 };

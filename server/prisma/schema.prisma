@@ -12,6 +12,8 @@ model User {
   email                  String                  @unique
   fullName               String?
   phoneNumber            String?                 @unique
+  bio                    String?
+  city                   String?
   password               String
   createdAt              DateTime                @default(now())
   pets                   Pet[]
@@ -25,6 +27,11 @@ model Pet {
   type                  String
   age                   Int
   breed                 String
+  bio                   String?
+  gender                PetGender?
+  size                  PetSize?
+  temperament           String[]      @default([])
+  city                  String?
   imageUrl              String?
   imagePublicId         String?
   imageAssetId          String?
@@ -44,6 +51,20 @@ model Pet {
   matchesAsPet2         Match[]       @relation("MatchPet2")
 
   @@index([ownerId])
+  @@index([city])
+}
+
+enum PetGender {
+  MALE
+  FEMALE
+  UNKNOWN
+}
+
+enum PetSize {
+  SMALL
+  MEDIUM
+  LARGE
+  EXTRA_LARGE
 }
 
 enum InteractionType {

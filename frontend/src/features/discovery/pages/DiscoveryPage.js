@@ -3,6 +3,7 @@ import { ArrowLeft, Heart, Sparkles, Star, X } from 'lucide-react';
 export default function DiscoveryPage({ app }) {
   const {
     activeUserPet,
+    authSession,
     currentPet,
     discoveryError,
     discoveryPets,
@@ -49,6 +50,13 @@ export default function DiscoveryPage({ app }) {
             <label className="mb-2 block text-sm font-semibold text-gray-700" htmlFor="active-discovery-pet">
               Discovering as
             </label>
+            <div className="mb-3 flex items-center gap-3 rounded-2xl bg-purple-50 p-3">
+              <PetAvatar pet={activeUserPet} />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-bold text-gray-900">{activeUserPet.name}</div>
+                <div className="truncate text-xs text-gray-500">{getPetSelectorDetails(activeUserPet, authSession)}</div>
+              </div>
+            </div>
             <select
               id="active-discovery-pet"
               value={activeUserPet.id}
@@ -82,7 +90,7 @@ export default function DiscoveryPage({ app }) {
         ) : null}
         {activeUserPet && currentPet ? (
           <>
-            <div className="bg-white rounded-3xl h-96 relative shadow-xl overflow-hidden">
+            <div className="bg-white rounded-3xl h-[32rem] relative shadow-xl overflow-hidden">
               {currentPet.image ? (
                 <img src={currentPet.image} alt={currentPet.name} className="absolute inset-0 h-full w-full object-cover" />
               ) : (
@@ -92,8 +100,27 @@ export default function DiscoveryPage({ app }) {
               )}
               <div className="absolute inset-x-0 bottom-0 bg-white rounded-t-3xl p-6">
                 <h2 className="text-2xl font-bold mb-2">{currentPet.name}, {currentPet.age}</h2>
-                <p className="text-gray-600 text-sm mb-1">{currentPet.emoji} {currentPet.breed}</p>
-                <p className="text-gray-500 text-sm">{currentPet.type}</p>
+                <p className="text-gray-600 text-sm mb-1">{currentPet.emoji} {getPetHeadline(currentPet)}</p>
+                {getEffectivePetLocation(currentPet, authSession) ? (
+                  <p className="text-gray-500 text-sm">📍 {getEffectivePetLocation(currentPet, authSession)}</p>
+                ) : null}
+                {currentPet.bio ? (
+                  <p className="mt-3 line-clamp-2 text-sm leading-5 text-gray-600">{currentPet.bio}</p>
+                ) : null}
+                {currentPet.owner?.fullName ? (
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-wide text-purple-600">
+                    With {currentPet.owner.fullName}
+                  </p>
+                ) : null}
+                {currentPet.temperament?.length ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {currentPet.temperament.slice(0, 4).map((trait) => (
+                      <span key={trait} className="rounded-full bg-purple-50 px-3 py-1 text-xs font-semibold text-purple-700">
+                        {trait}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
               </div>
             </div>
             <div className="text-center my-4 text-sm text-gray-600">{discoveryPets.length} pets ready</div>
@@ -123,6 +150,53 @@ export default function DiscoveryPage({ app }) {
       ) : null}
     </div>
   );
+}
+
+function PetAvatar({ pet }) {
+  return (
+    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-white text-2xl shadow-sm ring-2 ring-purple-100">
+      {pet.imageUrl ? (
+        <img src={pet.imageUrl} alt={pet.name} className="h-full w-full object-cover" />
+      ) : (
+        <span>{pet.emoji}</span>
+      )}
+    </div>
+  );
+}
+
+function getPetSelectorDetails(pet, authSession) {
+  return [pet.breed, pet.type, getEffectivePetLocation(pet, authSession)].filter(Boolean).join(' · ') || 'Pet profile';
+}
+
+function getEffectivePetLocation(pet, authSession) {
+  return pet.city
+    || pet.location
+    || pet.owner?.city
+    || pet.owner?.location
+    || authSession?.user?.city
+    || authSession?.user?.location
+    || '';
+}
+
+function getPetHeadline(pet) {
+  return [
+    pet.breed,
+    pet.type,
+    formatEnumLabel(pet.gender),
+    formatEnumLabel(pet.size)
+  ].filter(Boolean).join(' · ');
+}
+
+function formatEnumLabel(value) {
+  if (!value) {
+    return '';
+  }
+
+  return value
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
 }
 
 function MatchCelebration({ celebration, onClose, onViewMatches }) {
