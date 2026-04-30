@@ -6,6 +6,7 @@ export default function DiscoveryPage({ app }) {
     authSession,
     currentPet,
     discoveryError,
+    discoveryFilters,
     discoveryPets,
     handleSwipe,
     interactionError,
@@ -20,6 +21,8 @@ export default function DiscoveryPage({ app }) {
     viewCelebratedMatch,
     userPets = []
   } = app;
+  const filters = discoveryFilters || DEFAULT_DISCOVERY_FILTERS;
+  const activeFilterCount = getActiveDiscoveryFilterCount(filters);
 
   return (
     <div className="bg-gray-50 flex flex-col pb-16">
@@ -79,7 +82,14 @@ export default function DiscoveryPage({ app }) {
         {activeUserPet && !isDiscoveryLoading && !currentPet ? (
           <div className="bg-white rounded-3xl p-6 text-center shadow-sm">
             <p className="text-gray-600 font-semibold mb-2">No pets to show</p>
-            <p className="text-gray-500 text-sm">Check back after more pets join PetMatch.</p>
+            <p className="text-gray-500 text-sm">
+              {activeFilterCount > 0 ? 'Try adjusting your preferences.' : 'Check back after more pets join PetMatch.'}
+            </p>
+            {activeFilterCount > 0 ? (
+              <button type="button" onClick={() => setCurrentScreen('preferences')} className="mt-4 rounded-full bg-purple-600 px-5 py-2 text-sm font-semibold text-white">
+                Edit preferences
+              </button>
+            ) : null}
           </div>
         ) : null}
         {discoveryError ? (
@@ -197,6 +207,26 @@ function formatEnumLabel(value) {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+}
+
+const DEFAULT_DISCOVERY_FILTERS = {
+  breed: '',
+  maxAge: '',
+  minAge: '',
+  size: '',
+  type: '',
+  withPhotos: false
+};
+
+function getActiveDiscoveryFilterCount(filters = {}) {
+  return [
+    filters.type,
+    filters.breed?.trim(),
+    filters.minAge,
+    filters.maxAge,
+    filters.size,
+    filters.withPhotos
+  ].filter(Boolean).length;
 }
 
 function MatchCelebration({ celebration, onClose, onViewMatches }) {

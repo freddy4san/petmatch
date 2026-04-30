@@ -54,7 +54,57 @@ function sanitizeDiscoveryPet(pet) {
   };
 }
 
-async function getDiscoveryPets(userId, { cursor, fromPetId, limit }) {
+function buildDiscoveryFilterWhere({ type, breed, minAge, maxAge, size, withPhotos } = {}) {
+  const andFilters = [];
+
+  if (type) {
+    andFilters.push({
+      type: {
+        equals: type,
+        mode: "insensitive",
+      },
+    });
+  }
+
+  if (breed) {
+    andFilters.push({
+      breed: {
+        contains: breed,
+        mode: "insensitive",
+      },
+    });
+  }
+
+  if (minAge !== undefined || maxAge !== undefined) {
+    andFilters.push({
+      age: {
+        ...(minAge !== undefined ? { gte: minAge } : {}),
+        ...(maxAge !== undefined ? { lte: maxAge } : {}),
+      },
+    });
+  }
+
+  if (size) {
+    andFilters.push({ size });
+  }
+
+  if (withPhotos) {
+    andFilters.push({
+      imageUrl: {
+        not: null,
+      },
+    });
+    andFilters.push({
+      imageUrl: {
+        not: "",
+      },
+    });
+  }
+
+  return andFilters.length > 0 ? { AND: andFilters } : {};
+}
+
+async function getDiscoveryPets(userId, { cursor, fromPetId, limit, ...filters }) {
   const userPetIds = await getDiscoverySourcePetIds(userId, fromPetId);
 
   if (userPetIds.length === 0) {
@@ -94,6 +144,7 @@ async function getDiscoveryPets(userId, { cursor, fromPetId, limit }) {
           },
         },
       },
+      ...buildDiscoveryFilterWhere(filters),
     },
     orderBy: {
       id: "asc",
@@ -106,6 +157,7 @@ async function getDiscoveryPets(userId, { cursor, fromPetId, limit }) {
 }
 
 module.exports = {
+  buildDiscoveryFilterWhere,
   getDiscoveryPets,
 };
 

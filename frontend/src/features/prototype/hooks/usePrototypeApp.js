@@ -38,12 +38,21 @@ const EMPTY_PET_FORM = {
   temperament: [],
   type: 'Dog'
 };
+const EMPTY_DISCOVERY_FILTERS = {
+  breed: '',
+  maxAge: '',
+  minAge: '',
+  size: '',
+  type: '',
+  withPhotos: false
+};
 const PET_TYPE_EMOJI_MAP = {
   Bird: '🦜',
   Cat: '🐱',
   Dog: '🐕',
   Rabbit: '🐇',
-  Raccoon: '🦝'
+  Raccoon: '🦝',
+  Reptile: '🦎'
 };
 const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup']);
 
@@ -59,6 +68,8 @@ export function usePrototypeApp() {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showDistance, setShowDistance] = useState(true);
   const [maxDistance, setMaxDistance] = useState(25);
+  const [discoveryFilters, setDiscoveryFilters] = useState(EMPTY_DISCOVERY_FILTERS);
+  const [discoveryFilterDraft, setDiscoveryFilterDraft] = useState(EMPTY_DISCOVERY_FILTERS);
   const [theme, setTheme] = useState('light');
   const [userPets, setUserPets] = useState([]);
   const [activeUserPetId, setActiveUserPetId] = useState('');
@@ -121,13 +132,22 @@ export function usePrototypeApp() {
       return;
     }
 
+    const filterError = getDiscoveryFilterValidationError(discoveryFilters);
+
+    if (filterError) {
+      setDiscoveryPets([]);
+      setDiscoveryError(filterError);
+      return;
+    }
+
     setIsDiscoveryLoading(true);
     setDiscoveryError('');
 
     try {
       const pets = await getDiscoveryPets(authSession.token, {
         fromPetId: activeUserPet.id,
-        limit: 10
+        limit: 10,
+        ...getAppliedDiscoveryFilters(discoveryFilters)
       });
       setDiscoveryPets(pets.map(mapApiPetToViewModel));
     } catch (error) {
@@ -135,7 +155,7 @@ export function usePrototypeApp() {
     } finally {
       setIsDiscoveryLoading(false);
     }
-  }, [activeUserPet?.id, authSession]);
+  }, [activeUserPet?.id, authSession, discoveryFilters]);
 
   const loadMatches = useCallback(async () => {
     if (!authSession?.token) {
@@ -212,6 +232,8 @@ export function usePrototypeApp() {
       setEditingPetId(null);
       setPetDraft(EMPTY_PET_FORM);
       setActiveUserPetId('');
+      setDiscoveryFilters(EMPTY_DISCOVERY_FILTERS);
+      setDiscoveryFilterDraft(EMPTY_DISCOVERY_FILTERS);
       setMatchesFilter('all');
       readMessageIdsRef.current = new Set();
       return;
@@ -496,6 +518,8 @@ export function usePrototypeApp() {
     setMessagesError('');
     setIsMessagesLoading(false);
     setIsSendingMessage(false);
+    setDiscoveryFilters(EMPTY_DISCOVERY_FILTERS);
+    setDiscoveryFilterDraft(EMPTY_DISCOVERY_FILTERS);
     setCurrentScreen('welcome');
   }, []);
 
@@ -519,6 +543,35 @@ export function usePrototypeApp() {
   const selectActiveUserPet = (petId) => {
     setActiveUserPetId(petId);
     setDiscoveryPets([]);
+    setInteractionError('');
+  };
+
+  const updateDiscoveryFilter = (field, value) => {
+    setDiscoveryFilterDraft((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const applyDiscoveryFilters = () => {
+    const nextFilters = normalizeDiscoveryFilters(discoveryFilterDraft);
+    setDiscoveryFilterDraft(nextFilters);
+
+    if (areDiscoveryFiltersEqual(nextFilters, discoveryFilters)) {
+      return;
+    }
+
+    setDiscoveryFilters(nextFilters);
+    setDiscoveryPets([]);
+    setDiscoveryError('');
+    setInteractionError('');
+  };
+
+  const resetDiscoveryFilters = () => {
+    setDiscoveryFilters(EMPTY_DISCOVERY_FILTERS);
+    setDiscoveryFilterDraft(EMPTY_DISCOVERY_FILTERS);
+    setDiscoveryPets([]);
+    setDiscoveryError('');
     setInteractionError('');
   };
 
@@ -813,6 +866,7 @@ export function usePrototypeApp() {
     activeUserPet,
     activeUserPetId,
     addPet,
+    applyDiscoveryFilters,
     authSession,
     chatMessages,
     clearProfileDetailsError: () => setProfileDetailsError(''),
@@ -836,6 +890,8 @@ export function usePrototypeApp() {
     isSavingPet,
     isSendingMessage,
     discoveryError,
+    discoveryFilterDraft,
+    discoveryFilters,
     discoveryPets,
     interactionError,
     likedPets,
@@ -855,6 +911,7 @@ export function usePrototypeApp() {
     refreshMatches: loadMatches,
     refreshMessages,
     removePet,
+    resetDiscoveryFilters,
     saveEditingPet,
     saveProfileDetails,
     saveProfileLocation,
@@ -872,6 +929,7 @@ export function usePrototypeApp() {
     startEditingPet,
     theme,
     unreadMatchCount,
+    updateDiscoveryFilter,
     updateEditingPet,
     dismissMatchCelebration,
     viewCelebratedMatch,
@@ -919,6 +977,52 @@ function getNullableTrimmedValue(value) {
 
 function normalizeTemperament(values = []) {
   return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
+}
+
+function normalizeDiscoveryFilters(filters) {
+  return {
+    breed: filters.breed.trim(),
+    maxAge: filters.maxAge,
+    minAge: filters.minAge,
+    size: filters.size,
+    type: filters.type,
+    withPhotos: Boolean(filters.withPhotos)
+  };
+}
+
+function getAppliedDiscoveryFilters(filters) {
+  return {
+    breed: filters.breed.trim(),
+    maxAge: filters.maxAge,
+    minAge: filters.minAge,
+    size: filters.size,
+    type: filters.type,
+    withPhotos: filters.withPhotos
+  };
+}
+
+function getDiscoveryFilterValidationError(filters) {
+  const minAge = filters.minAge === '' ? null : Number(filters.minAge);
+  const maxAge = filters.maxAge === '' ? null : Number(filters.maxAge);
+
+  if ((minAge !== null && (Number.isNaN(minAge) || minAge < 0)) || (maxAge !== null && (Number.isNaN(maxAge) || maxAge < 0))) {
+    return 'Use a valid age range.';
+  }
+
+  if (minAge !== null && maxAge !== null && minAge > maxAge) {
+    return 'Minimum age must be less than or equal to maximum age.';
+  }
+
+  return '';
+}
+
+function areDiscoveryFiltersEqual(left = {}, right = {}) {
+  return left.type === right.type
+    && left.breed === right.breed
+    && left.minAge === right.minAge
+    && left.maxAge === right.maxAge
+    && left.size === right.size
+    && Boolean(left.withPhotos) === Boolean(right.withPhotos);
 }
 
 function toggleValue(values = [], value) {

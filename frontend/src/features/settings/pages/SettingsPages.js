@@ -1,7 +1,20 @@
 import { ArrowLeft, Bell, Settings, X } from 'lucide-react';
 
 export function PreferencesPage({ app }) {
-  const { maxDistance, setCurrentScreen, setMaxDistance } = app;
+  const {
+    applyDiscoveryFilters = () => {},
+    discoveryFilterDraft = DEFAULT_DISCOVERY_FILTERS,
+    discoveryFilters = DEFAULT_DISCOVERY_FILTERS,
+    maxDistance,
+    resetDiscoveryFilters = () => {},
+    setCurrentScreen,
+    setMaxDistance,
+    updateDiscoveryFilter = () => {}
+  } = app;
+  const activeFilterCount = getActiveDiscoveryFilterCount(discoveryFilters);
+  const draftFilterCount = getActiveDiscoveryFilterCount(discoveryFilterDraft);
+  const hasUnappliedChanges = !areDiscoveryFiltersEqual(discoveryFilterDraft, discoveryFilters);
+  const breedOptions = getBreedOptions(discoveryFilterDraft.type);
 
   return (
     <div className="h-full bg-gray-50 flex flex-col">
@@ -24,32 +37,101 @@ export function PreferencesPage({ app }) {
             <div className="px-5 py-4">
               <div className="font-semibold text-sm mb-3">Age Range</div>
               <div className="flex gap-4 items-center">
-                <input type="number" defaultValue="1" className="w-20 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500" />
+                <input
+                  type="number"
+                  min="0"
+                  value={discoveryFilterDraft.minAge}
+                  onChange={(event) => updateDiscoveryFilter('minAge', event.target.value)}
+                  placeholder="Any"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                />
                 <span className="text-gray-600">to</span>
-                <input type="number" defaultValue="10" className="w-20 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500" />
+                <input
+                  type="number"
+                  min="0"
+                  value={discoveryFilterDraft.maxAge}
+                  onChange={(event) => updateDiscoveryFilter('maxAge', event.target.value)}
+                  placeholder="Any"
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-purple-500"
+                />
                 <span className="text-sm text-gray-600">years</span>
               </div>
             </div>
             <div className="px-5 py-4">
-              <div className="font-semibold text-sm mb-3">Pet Types</div>
-              <div className="space-y-2">
-                {['Dogs', 'Cats', 'Birds', 'Rabbits', 'Reptiles', 'Fish', 'Small Mammals'].map((type) => (
-                  <label key={type} className="flex items-center gap-2">
-                    <input type="checkbox" defaultChecked={type === 'Dogs' || type === 'Cats'} className="rounded" />
-                    <span className="text-sm">{type}</span>
-                  </label>
+              <div className="font-semibold text-sm mb-3">Pet Type</div>
+              <select
+                value={discoveryFilterDraft.type}
+                onChange={(event) => updateDiscoveryFilter('type', event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">Any type</option>
+                {PET_TYPE_OPTIONS.map((type) => (
+                  <option key={type} value={type}>{type}</option>
                 ))}
-              </div>
+              </select>
             </div>
             <div className="px-5 py-4">
-              <div className="font-semibold text-sm mb-3">Looking For</div>
-              <div className="space-y-2">
-                {['Playdates', 'Walking Partners', 'Breeding', 'Adoption', 'Training Partners', 'Grooming Buddies', 'Pet Sitting'].map((option) => (
-                  <label key={option} className="flex items-center gap-2">
-                    <input type="checkbox" defaultChecked={option === 'Playdates'} className="rounded" />
-                    <span className="text-sm">{option}</span>
-                  </label>
+              <div className="font-semibold text-sm mb-3">Breed</div>
+              <input
+                type="text"
+                list="discovery-breed-options"
+                value={discoveryFilterDraft.breed}
+                onChange={(event) => updateDiscoveryFilter('breed', event.target.value)}
+                placeholder="Any breed"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+              />
+              <datalist id="discovery-breed-options">
+                {breedOptions.map((breed) => (
+                  <option key={breed} value={breed} />
                 ))}
+              </datalist>
+            </div>
+            <div className="px-5 py-4">
+              <div className="font-semibold text-sm mb-3">Size</div>
+              <select
+                value={discoveryFilterDraft.size}
+                onChange={(event) => updateDiscoveryFilter('size', event.target.value)}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="">Any size</option>
+                {PET_SIZE_OPTIONS.map((size) => (
+                  <option key={size.value} value={size.value}>{size.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-sm">Only Pets With Photos</div>
+                <div className="text-xs text-gray-600">Hide profiles without images</div>
+              </div>
+              <input
+                type="checkbox"
+                checked={discoveryFilterDraft.withPhotos}
+                onChange={(event) => updateDiscoveryFilter('withPhotos', event.target.checked)}
+                className="rounded w-5 h-5"
+              />
+            </div>
+            <div className="px-5 py-4">
+              <div className="mb-3 text-xs font-semibold text-gray-500">
+                {activeFilterCount} applied · {draftFilterCount} selected
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={resetDiscoveryFilters}
+                  disabled={activeFilterCount === 0 && draftFilterCount === 0}
+                  className="rounded-full border border-gray-200 px-4 py-3 text-sm font-bold text-purple-600 disabled:text-gray-300"
+                >
+                  Reset
+                </button>
+                <button
+                  type="button"
+                  onClick={applyDiscoveryFilters}
+                  disabled={!hasUnappliedChanges}
+                  className="rounded-full bg-purple-600 px-4 py-3 text-sm font-bold text-white disabled:bg-gray-300"
+                >
+                  Apply
+                </button>
               </div>
             </div>
           </div>
@@ -57,6 +139,122 @@ export function PreferencesPage({ app }) {
       </div>
     </div>
   );
+}
+
+const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Reptile'];
+const BREED_OPTIONS_BY_TYPE = {
+  Bird: [
+    'African Grey',
+    'Budgerigar',
+    'Canary',
+    'Cockatiel',
+    'Conure',
+    'Lovebird',
+    'Macaw',
+    'Parrot',
+    'Parrotlet'
+  ],
+  Cat: [
+    'Abyssinian',
+    'Bengal',
+    'British Shorthair',
+    'Domestic Longhair',
+    'Domestic Shorthair',
+    'Maine Coon',
+    'Persian',
+    'Ragdoll',
+    'Russian Blue',
+    'Scottish Fold',
+    'Siamese',
+    'Sphynx'
+  ],
+  Dog: [
+    'Australian Shepherd',
+    'Beagle',
+    'Border Collie',
+    'Boxer',
+    'Bulldog',
+    'Cavalier King Charles Spaniel',
+    'Chihuahua',
+    'Cocker Spaniel',
+    'Corgi',
+    'Dachshund',
+    'French Bulldog',
+    'German Shepherd',
+    'Golden Retriever',
+    'Labrador Retriever',
+    'Maltese',
+    'Poodle',
+    'Pomeranian',
+    'Shih Tzu',
+    'Staffordshire Bull Terrier',
+    'Whippet'
+  ],
+  Rabbit: [
+    'Angora',
+    'Dutch',
+    'Flemish Giant',
+    'Holland Lop',
+    'Lionhead',
+    'Mini Lop',
+    'Mini Rex',
+    'Netherland Dwarf',
+    'Rex'
+  ],
+  Reptile: [
+    'Ball Python',
+    'Bearded Dragon',
+    'Blue-Tongued Skink',
+    'Boa Constrictor',
+    'Corn Snake',
+    'Crested Gecko',
+    'Greek Tortoise',
+    'Green Iguana',
+    'Hermann Tortoise',
+    'Leopard Gecko',
+    'Red-Eared Slider',
+    'Russian Tortoise',
+    'Sulcata Tortoise'
+  ]
+};
+const ALL_BREED_OPTIONS = Array.from(new Set(Object.values(BREED_OPTIONS_BY_TYPE).flat())).sort();
+const PET_SIZE_OPTIONS = [
+  { value: 'SMALL', label: 'Small' },
+  { value: 'MEDIUM', label: 'Medium' },
+  { value: 'LARGE', label: 'Large' },
+  { value: 'EXTRA_LARGE', label: 'Extra large' }
+];
+const DEFAULT_DISCOVERY_FILTERS = {
+  breed: '',
+  maxAge: '',
+  minAge: '',
+  size: '',
+  type: '',
+  withPhotos: false
+};
+
+function getActiveDiscoveryFilterCount(filters = {}) {
+  return [
+    filters.type,
+    filters.breed?.trim(),
+    filters.minAge,
+    filters.maxAge,
+    filters.size,
+    filters.withPhotos
+  ].filter(Boolean).length;
+}
+
+function getBreedOptions(type) {
+  return BREED_OPTIONS_BY_TYPE[type] || ALL_BREED_OPTIONS;
+}
+
+function areDiscoveryFiltersEqual(left = {}, right = {}) {
+  return left.type === right.type
+    && left.breed === right.breed
+    && left.minAge === right.minAge
+    && left.maxAge === right.maxAge
+    && left.size === right.size
+    && Boolean(left.withPhotos) === Boolean(right.withPhotos);
 }
 
 export function NotificationSettingsPage({ app }) {

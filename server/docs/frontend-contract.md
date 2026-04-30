@@ -44,13 +44,23 @@
 
 ### Discovery
 
-`GET /api/discovery?fromPetId=pet_id&limit=10&cursor=last_pet_id`
+`GET /api/discovery?fromPetId=pet_id&limit=10&cursor=last_pet_id&type=Dog&breed=Corgi&minAge=1&maxAge=6&size=MEDIUM&withPhotos=true`
 
 - Auth required.
 - `fromPetId` is optional for backwards compatibility. When provided, discovery
   excludes pets already liked or passed by that selected pet only.
 - `cursor` is optional and returns pets with ids after the cursor in the stable
   feed order.
+- `type` is optional and filters by pet type using a case-insensitive exact
+  match.
+- `breed` is optional and filters by breed using a case-insensitive contains
+  match.
+- `minAge` and `maxAge` are optional inclusive age bounds. When both are
+  provided, `minAge` must be less than or equal to `maxAge`.
+- `size` is optional and must be one of `SMALL`, `MEDIUM`, `LARGE`, or
+  `EXTRA_LARGE`.
+- `withPhotos=true` is optional and returns only pets with a non-empty image
+  URL.
 - The frontend should pass the currently selected user pet as `fromPetId`.
 - Discovery pet responses include profile fields and a lightweight `owner`
   object for display:

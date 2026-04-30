@@ -1,7 +1,83 @@
 import { useState } from 'react';
 import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
 
-const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Raccoon', 'Other'];
+const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Reptile', 'Raccoon', 'Other'];
+const BREED_OPTIONS_BY_TYPE = {
+  Bird: [
+    'African Grey',
+    'Budgerigar',
+    'Canary',
+    'Cockatiel',
+    'Conure',
+    'Lovebird',
+    'Macaw',
+    'Parrot',
+    'Parrotlet'
+  ],
+  Cat: [
+    'Abyssinian',
+    'Bengal',
+    'British Shorthair',
+    'Domestic Longhair',
+    'Domestic Shorthair',
+    'Maine Coon',
+    'Persian',
+    'Ragdoll',
+    'Russian Blue',
+    'Scottish Fold',
+    'Siamese',
+    'Sphynx'
+  ],
+  Dog: [
+    'Australian Shepherd',
+    'Beagle',
+    'Border Collie',
+    'Boxer',
+    'Bulldog',
+    'Cavalier King Charles Spaniel',
+    'Chihuahua',
+    'Cocker Spaniel',
+    'Corgi',
+    'Dachshund',
+    'French Bulldog',
+    'German Shepherd',
+    'Golden Retriever',
+    'Labrador Retriever',
+    'Maltese',
+    'Poodle',
+    'Pomeranian',
+    'Shih Tzu',
+    'Staffordshire Bull Terrier',
+    'Whippet'
+  ],
+  Rabbit: [
+    'Angora',
+    'Dutch',
+    'Flemish Giant',
+    'Holland Lop',
+    'Lionhead',
+    'Mini Lop',
+    'Mini Rex',
+    'Netherland Dwarf',
+    'Rex'
+  ],
+  Reptile: [
+    'Ball Python',
+    'Bearded Dragon',
+    'Blue-Tongued Skink',
+    'Boa Constrictor',
+    'Corn Snake',
+    'Crested Gecko',
+    'Greek Tortoise',
+    'Green Iguana',
+    'Hermann Tortoise',
+    'Leopard Gecko',
+    'Red-Eared Slider',
+    'Russian Tortoise',
+    'Sulcata Tortoise'
+  ]
+};
+const ALL_BREED_OPTIONS = Array.from(new Set(Object.values(BREED_OPTIONS_BY_TYPE).flat())).sort();
 const PET_GENDER_OPTIONS = [
   { value: '', label: 'Not specified' },
   { value: 'FEMALE', label: 'Female' },
@@ -575,7 +651,12 @@ function PetFormFields({ pet, updateEditingPet }) {
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Breed</label>
-        <input type="text" value={pet.breed} onChange={(event) => updateEditingPet('breed', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter breed" />
+        <input type="text" list="pet-breed-options" value={pet.breed} onChange={(event) => updateEditingPet('breed', event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter breed" />
+        <datalist id="pet-breed-options">
+          {getBreedOptions(pet.type).map((breed) => (
+            <option key={breed} value={breed} />
+          ))}
+        </datalist>
       </div>
       <div>
         <label className="block text-sm font-semibold text-gray-700 mb-2">Age</label>
@@ -650,9 +731,15 @@ function getPetEmoji(type) {
       return '🐇';
     case 'Raccoon':
       return '🦝';
+    case 'Reptile':
+      return '🦎';
     default:
       return '🐾';
   }
+}
+
+function getBreedOptions(type) {
+  return BREED_OPTIONS_BY_TYPE[type] || ALL_BREED_OPTIONS;
 }
 
 function formatEnumLabel(value) {
