@@ -17,8 +17,8 @@ export function MatchesPage({ app }) {
     : matches;
 
   return (
-    <div className="bg-gray-50 flex flex-col pb-4">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('home')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30" aria-label="Back to home">
           <ArrowLeft size={20} />
         </button>
@@ -27,14 +27,14 @@ export function MatchesPage({ app }) {
           <RefreshCw size={18} />
         </button>
       </div>
-      <div className="flex border-b border-gray-200 bg-white">
+      <div className="flex shrink-0 border-b border-gray-200 bg-white">
         <button onClick={() => setMatchesFilter('all')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'all' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>All</button>
         <button onClick={() => setMatchesFilter('matches')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'matches' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>Matches</button>
         <button onClick={() => setMatchesFilter('unread')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'unread' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>
           Unread{unreadMatchCount ? ` (${unreadMatchCount})` : ''}
         </button>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-8">
         {matchesError ? (
           <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{matchesError}</p>
         ) : null}
@@ -197,8 +197,8 @@ export function ChatPage({ app }) {
   const messageGroups = groupMessagesByDay(messages);
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-4 flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center gap-3 bg-gradient-to-r from-purple-500 to-indigo-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('matches')} className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-opacity-30" aria-label="Back to messages">
           <ChevronLeft size={20} />
         </button>
@@ -215,7 +215,7 @@ export function ChatPage({ app }) {
           <RefreshCw size={18} />
         </button>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {messagesError ? (
           <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{messagesError}</p>
         ) : null}
@@ -237,7 +237,8 @@ export function ChatPage({ app }) {
         ))}
       </div>
       <form
-        className="bg-white border-t border-gray-200 p-4 flex items-center gap-2"
+        className="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-white p-4"
+        style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
         onSubmit={(event) => {
           event.preventDefault();
           handleSendMessage();

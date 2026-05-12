@@ -5,8 +5,8 @@ export default function HomePage({ app }) {
   const displayName = getDisplayName(authSession);
 
   return (
-    <div className="bg-gray-50 flex flex-col pb-4">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 pb-8">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-sm opacity-90">Good Morning</p>
@@ -38,7 +38,7 @@ export default function HomePage({ app }) {
         </div>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <h2 className="text-lg font-bold mb-4">Quick Actions</h2>
         <div className="grid grid-cols-2 gap-3 mb-8">
           <button onClick={() => setCurrentScreen('profile')} className="bg-white rounded-2xl p-4 text-center border-2 border-gray-100 hover:border-purple-500 transition-all">

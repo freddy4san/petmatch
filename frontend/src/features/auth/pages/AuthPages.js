@@ -90,7 +90,7 @@ export function SignupPage({ app, onNavigate }) {
           </div>
           <h2 className="text-2xl font-bold text-center">Create Account</h2>
         </div>
-        <form className="p-8 md:max-h-96 md:overflow-y-auto" onSubmit={handleSignupSubmit}>
+        <form className="p-8" onSubmit={handleSignupSubmit}>
           <div className="mb-4">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Full Name</label>
             <input name="fullName" type="text" value={formData.fullName} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter your full name" />

@@ -17,15 +17,15 @@ export function PreferencesPage({ app }) {
   const breedOptions = getBreedOptions(discoveryFilterDraft.type);
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Preferences</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm mb-4">
           <div className="bg-gray-50 px-5 py-3 text-xs font-bold text-gray-500 tracking-wider">DISCOVERY SETTINGS</div>
           <div className="divide-y divide-gray-100">
@@ -261,15 +261,15 @@ export function NotificationSettingsPage({ app }) {
   const { notificationsEnabled, setCurrentScreen, setNotificationsEnabled } = app;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Notifications</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
           <div className="bg-gray-50 px-5 py-3 text-xs font-bold text-gray-500 tracking-wider">PUSH NOTIFICATIONS</div>
           <div className="divide-y divide-gray-100">
@@ -305,15 +305,15 @@ export function PrivacyPage({ app }) {
   const { setCurrentScreen, setShowDistance, showDistance } = app;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Privacy & Safety</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <div className="bg-white rounded-2xl overflow-hidden shadow-sm">
           <div className="bg-gray-50 px-5 py-3 text-xs font-bold text-gray-500 tracking-wider">PRIVACY SETTINGS</div>
           <div className="divide-y divide-gray-100">
@@ -353,13 +353,13 @@ export function PrivacyPage({ app }) {
 
 export function VerificationPage() {
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <div className="w-10"></div>
         <h1 className="text-2xl font-bold">Verification</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto flex items-center justify-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 pb-8">
         <div className="text-center">
           <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <div className="text-5xl text-green-600">✓</div>
@@ -392,15 +392,15 @@ export function NotificationsPage({ app }) {
   const { matches, setCurrentScreen } = app;
 
   return (
-    <div className="bg-gray-50 flex flex-col pb-4">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('home')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Notifications</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-4 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-8">
         <div className="space-y-3">
           {matches.length > 0 ? (
             <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
@@ -444,15 +444,15 @@ export function SettingsPage({ app }) {
   const { handleLogout, notificationsEnabled, setCurrentScreen, setNotificationsEnabled, theme } = app;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('home')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Settings</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <div className="mb-4">
           <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 px-1">ACCOUNT SETTINGS</h3>
           <div className="bg-white rounded-3xl overflow-hidden shadow-sm">
@@ -576,14 +576,14 @@ export function SettingsPage({ app }) {
 
 export function PremiumPage({ onNavigate }) {
   return (
-    <div className="h-full bg-gradient-to-br from-yellow-400 via-orange-400 to-pink-500 flex flex-col">
-      <div className="p-6 flex items-center justify-between text-white">
+    <div className="flex h-full min-h-0 flex-col bg-gradient-to-br from-yellow-400 via-orange-400 to-pink-500">
+      <div className="flex shrink-0 items-center justify-between px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <X size={20} />
         </button>
         <div className="text-2xl">⭐</div>
       </div>
-      <div className="flex-1 flex items-center justify-center p-6">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 pb-8">
         <div className="max-w-md w-full">
           <div className="text-center text-white mb-8">
             <div className="text-6xl mb-4">⭐</div>
@@ -630,15 +630,15 @@ export function PremiumPage({ onNavigate }) {
 
 export function HelpPage({ onNavigate }) {
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Help & Support</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <h2 className="text-lg font-bold mb-4">Frequently Asked Questions</h2>
         <div className="space-y-4">
           <div className="bg-white rounded-2xl p-4">
@@ -665,15 +665,15 @@ export function HelpPage({ onNavigate }) {
 
 export function AboutPage({ onNavigate }) {
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">About PetMatch</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6 flex items-center justify-center">
+      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 pb-8">
         <div className="text-center">
           <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6">
             <span className="text-4xl">🐾</span>
@@ -693,15 +693,15 @@ export function AboutPage({ onNavigate }) {
 
 export function LanguagePage({ onNavigate }) {
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => onNavigate('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Language</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <h2 className="text-lg font-bold mb-4">Select Language</h2>
         <div className="space-y-3">
           <div className="bg-white rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50">
@@ -741,15 +741,15 @@ export function ThemePage({ app }) {
   const { setCurrentScreen, setTheme, theme } = app;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">Theme</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         <h2 className="text-lg font-bold mb-4">Choose Theme</h2>
         <div className="space-y-3">
           <div onClick={() => setTheme('light')} className={`bg-white rounded-2xl p-4 flex items-center justify-between cursor-pointer hover:bg-gray-50 ${theme === 'light' ? 'ring-2 ring-purple-500' : ''}`}>

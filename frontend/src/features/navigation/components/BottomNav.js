@@ -1,7 +1,7 @@
 export default function BottomNav({ active, matchCount, onNavigate }) {
   return (
     <div
-      className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 border-t border-purple-300 flex justify-around items-center px-1 pt-2 pb-3 md:rounded-t-2xl"
+      className="z-20 w-full shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 border-t border-purple-300 flex justify-around items-center px-1 pt-2 pb-3 md:rounded-t-2xl"
       style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}
     >
       <button onClick={() => onNavigate('home')} className="flex flex-col items-center gap-1">

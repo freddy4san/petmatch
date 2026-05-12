@@ -227,8 +227,8 @@ export function ProfilePage({ app }) {
   };
 
   return (
-    <div className="bg-gray-50 flex flex-col pb-4">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 pb-8 relative">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-8 pt-[max(1.5rem,env(safe-area-inset-top))] text-white relative">
         <div className="flex justify-between items-center mb-6">
           <button onClick={() => setCurrentScreen('home')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
             <ArrowLeft size={20} />
@@ -251,7 +251,7 @@ export function ProfilePage({ app }) {
         </div>
       </div>
 
-      <div className="flex-1 px-6 py-6 overflow-y-auto">
+      <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6 pb-8">
         {!hasOwnerLocation ? (
           <form onSubmit={submitProfileLocation} className="mb-6 rounded-3xl bg-white p-5 shadow-sm">
             <h3 className="font-bold text-gray-900">Set your location</h3>
@@ -560,15 +560,15 @@ export function EditPetPage({ app }) {
   } = app;
 
   return (
-    <div className="h-full bg-gray-50 flex flex-col">
-      <div className="bg-gradient-to-r from-purple-500 to-indigo-600 text-white p-6 flex items-center justify-between">
+    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+      <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
         <button onClick={() => setCurrentScreen('profile')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
           <ArrowLeft size={20} />
         </button>
         <h1 className="text-2xl font-bold">{isEditingExistingPet ? 'Edit Pet' : 'Add Pet'}</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex-1 p-6">
+      <div className="min-h-0 flex-1 overflow-y-auto p-6 pb-8">
         {editingPet ? (
           <div className="space-y-6">
             <div className="text-center">
