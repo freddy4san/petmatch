@@ -1,7 +1,14 @@
 import { Bell, Settings } from 'lucide-react';
 
 export default function HomePage({ app }) {
-  const { authSession, likedPets, matches, setCurrentScreen } = app;
+  const {
+    authSession,
+    likedPets,
+    matchNotificationCount = 0,
+    matches,
+    setCurrentScreen,
+    unreadMatchCount = 0
+  } = app;
   const displayName = getDisplayName(authSession);
 
   return (
@@ -15,7 +22,7 @@ export default function HomePage({ app }) {
           <div className="flex gap-3">
             <button onClick={() => setCurrentScreen('notifications')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all relative">
               <Bell size={20} />
-              {matches.length > 0 ? <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div> : null}
+              {matchNotificationCount > 0 ? <div className="absolute top-0 right-0 w-2 h-2 bg-red-500 rounded-full"></div> : null}
             </button>
             <button onClick={() => setCurrentScreen('settings')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all">
               <Settings size={20} />
@@ -32,8 +39,8 @@ export default function HomePage({ app }) {
             <div className="text-xs opacity-90">Likes</div>
           </div>
           <div className="flex-1 text-center">
-            <div className="text-2xl font-bold">{matches.length * 2}</div>
-            <div className="text-xs opacity-90">Messages</div>
+            <div className="text-2xl font-bold">{unreadMatchCount}</div>
+            <div className="text-xs opacity-90">Unread</div>
           </div>
         </div>
       </div>

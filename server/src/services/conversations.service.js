@@ -94,6 +94,7 @@ function sanitizeConversation(conversation, userId, unreadCount = 0) {
   const lastMessage = conversation.messages?.[0] || null;
   const readState = conversation.readStates?.[0] || null;
   const sanitizedLastMessage = sanitizeMessage(lastMessage);
+  const isNewMatch = !lastMessage && !readState?.lastReadAt;
 
   return {
     id: conversation.id,
@@ -104,6 +105,7 @@ function sanitizeConversation(conversation, userId, unreadCount = 0) {
     lastReadAt: readState?.lastReadAt || null,
     unreadCount,
     hasUnread: unreadCount > 0,
+    isNewMatch,
     match: {
       id: match.id,
       petIds: [match.pet1Id, match.pet2Id],

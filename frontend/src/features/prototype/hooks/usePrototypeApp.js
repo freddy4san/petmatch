@@ -117,6 +117,11 @@ export function usePrototypeApp() {
     () => matches.reduce((total, match) => total + (Number(match.unreadCount) || 0), 0),
     [matches]
   );
+  const newMatchCount = useMemo(
+    () => matches.reduce((total, match) => total + (match.isNewMatch ? 1 : 0), 0),
+    [matches]
+  );
+  const matchNotificationCount = unreadMatchCount + newMatchCount;
   const navigateToScreen = useCallback((screen) => {
     if (isProtectedScreen(screen) && !authSession?.token && !hasStoredAuthSession()) {
       setCurrentScreen('welcome');
@@ -402,13 +407,16 @@ export function usePrototypeApp() {
   };
 
   const markMatchRead = async (match) => {
-    if (!match?.lastMessage?.id) {
+    if (!match) {
       return;
     }
 
-    readMessageIdsRef.current.add(match.lastMessage.id);
+    if (match.lastMessage?.id) {
+      readMessageIdsRef.current.add(match.lastMessage.id);
+    }
+
     setMatches((prev) => prev.map((item) => (
-      item.id === match.id ? { ...item, hasUnread: false, unreadCount: 0 } : item
+      item.id === match.id ? { ...item, hasUnread: false, isNewMatch: false, unreadCount: 0 } : item
     )));
 
     if (!authSession?.token || !match.conversationId) {
@@ -895,6 +903,7 @@ export function usePrototypeApp() {
     discoveryPets,
     interactionError,
     likedPets,
+    matchNotificationCount,
     matches,
     matchCelebration,
     matchesFilter,
@@ -928,6 +937,7 @@ export function usePrototypeApp() {
     startPetSetup,
     startEditingPet,
     theme,
+    newMatchCount,
     unreadMatchCount,
     updateDiscoveryFilter,
     updateEditingPet,
@@ -1173,6 +1183,7 @@ function mapApiConversationToViewModel(conversation, currentUserId = '', readMes
     conversationId: conversation.id,
     id: conversation.match?.id || conversation.matchId,
     hasUnread: hasBackendUnreadState ? Boolean(conversation.hasUnread || unreadCount > 0) : fallbackHasUnread,
+    isNewMatch: Boolean(conversation.isNewMatch),
     lastActivityAt: conversation.latestMessageAt || lastMessage?.createdAt || conversation.updatedAt,
     lastMessageSentByCurrentUser,
     lastMessage,
@@ -1199,6 +1210,7 @@ function updateMatchLastMessage(matches, matchId, message) {
       ? {
           ...match,
           hasUnread: false,
+          isNewMatch: false,
           lastActivityAt: message.createdAt || match.updatedAt,
           lastMessage: message,
           lastMessagePreview: message.body || '',

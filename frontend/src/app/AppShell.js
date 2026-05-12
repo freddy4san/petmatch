@@ -27,7 +27,7 @@ export default function AppShell() {
         {!hideNav ? (
           <BottomNav
             active={app.getActiveNav(app.currentScreen)}
-            matchCount={app.matches.length}
+            matchCount={app.matchNotificationCount}
             onNavigate={app.setCurrentScreen}
           />
         ) : null}

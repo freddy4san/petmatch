@@ -247,7 +247,8 @@ user from the JWT.
   "latestMessageAt": null,
   "lastReadAt": null,
   "unreadCount": 0,
-  "hasUnread": false
+  "hasUnread": false,
+  "isNewMatch": true
 }
 ```
 
@@ -282,6 +283,8 @@ user from the JWT.
 - `unreadCount` counts messages sent by the other user after the authenticated
   user's last read timestamp.
 - `hasUnread` is `true` when `unreadCount` is greater than zero.
+- `isNewMatch` is `true` when the conversation has no messages and the
+  authenticated user has not opened or marked the conversation as read.
 
 ### Mark Conversation Read
 
@@ -290,7 +293,8 @@ user from the JWT.
 - Auth required.
 - Only users who own one of the matched pets can mark a conversation as read.
 - Marks all messages currently in the conversation as read for the authenticated
-  user.
+  user. If the conversation has no messages yet, this marks the new match as
+  seen for that user.
 - Request body may be omitted or an empty JSON object.
 - Returns `404` when the conversation does not exist or is not accessible to the
   authenticated user.

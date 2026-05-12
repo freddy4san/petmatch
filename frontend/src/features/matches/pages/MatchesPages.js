@@ -10,11 +10,10 @@ export function MatchesPage({ app }) {
     refreshMatches = () => {},
     setCurrentScreen,
     setMatchesFilter = () => {},
+    newMatchCount = 0,
     unreadMatchCount = 0
   } = app;
-  const visibleMatches = matchesFilter === 'unread'
-    ? matches.filter((match) => match.hasUnread)
-    : matches;
+  const visibleMatches = getVisibleMatches(matches, matchesFilter);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
@@ -29,7 +28,9 @@ export function MatchesPage({ app }) {
       </div>
       <div className="flex shrink-0 border-b border-gray-200 bg-white">
         <button onClick={() => setMatchesFilter('all')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'all' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>All</button>
-        <button onClick={() => setMatchesFilter('matches')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'matches' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>Matches</button>
+        <button onClick={() => setMatchesFilter('matches')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'matches' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>
+          Matches{newMatchCount ? ` (${newMatchCount})` : ''}
+        </button>
         <button onClick={() => setMatchesFilter('unread')} className={`flex-1 py-4 text-center font-semibold ${matchesFilter === 'unread' ? 'text-purple-600 border-b-2 border-purple-600' : 'text-gray-400'}`}>
           Unread{unreadMatchCount ? ` (${unreadMatchCount})` : ''}
         </button>
@@ -51,7 +52,7 @@ export function MatchesPage({ app }) {
           <div className="rounded-lg border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
             <Inbox className="mx-auto mb-3 text-gray-300" size={32} />
             <p className="font-semibold text-gray-700">You are all caught up</p>
-            <p className="mt-1 text-sm text-gray-500">No unread conversations right now.</p>
+            <p className="mt-1 text-sm text-gray-500">{getEmptyFilterMessage(matchesFilter)}</p>
           </div>
         ) : null}
       </div>
@@ -59,16 +60,35 @@ export function MatchesPage({ app }) {
   );
 }
 
+function getVisibleMatches(matches, matchesFilter) {
+  if (matchesFilter === 'matches') {
+    return matches.filter((match) => match.isNewMatch);
+  }
+
+  if (matchesFilter === 'unread') {
+    return matches.filter((match) => match.hasUnread);
+  }
+
+  return matches;
+}
+
+function getEmptyFilterMessage(matchesFilter) {
+  return matchesFilter === 'matches'
+    ? 'No new matches right now.'
+    : 'No unread conversations right now.';
+}
+
 function ConversationCard({ match, onOpen }) {
   const unreadCount = Number(match.unreadCount) || 0;
   const hasUnread = Boolean(match.hasUnread || unreadCount > 0);
+  const isNewMatch = Boolean(match.isNewMatch);
   const petDetails = [match.breed, match.type].filter(Boolean).join(' • ');
 
   return (
     <button
       type="button"
       onClick={onOpen}
-      className={`mb-3 flex w-full items-center gap-3 rounded-lg border bg-white p-4 text-left transition-all hover:border-purple-200 hover:shadow-md ${hasUnread ? 'border-purple-200 shadow-sm' : 'border-gray-100'}`}
+      className={`mb-3 flex w-full items-center gap-3 rounded-lg border bg-white p-4 text-left transition-all hover:border-purple-200 hover:shadow-md ${hasUnread || isNewMatch ? 'border-purple-200 shadow-sm' : 'border-gray-100'}`}
     >
       <div className="relative flex-shrink-0">
         {match.image ? (
@@ -80,11 +100,13 @@ function ConversationCard({ match, onOpen }) {
           <span className="absolute -right-1 -top-1 flex min-w-5 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1.5 text-xs font-bold leading-4 text-white">
             {unreadCount > 9 ? '9+' : Math.max(unreadCount, 1)}
           </span>
+        ) : isNewMatch ? (
+          <span className="absolute -right-1 -top-1 h-4 w-4 rounded-full border-2 border-white bg-emerald-500" aria-label="New match" />
         ) : null}
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-start gap-2">
-          <div className={`min-w-0 flex-1 truncate ${hasUnread ? 'font-bold text-gray-950' : 'font-semibold text-gray-800'}`}>
+          <div className={`min-w-0 flex-1 truncate ${hasUnread || isNewMatch ? 'font-bold text-gray-950' : 'font-semibold text-gray-800'}`}>
             {match.name} & Owner
           </div>
           <div className={`flex-shrink-0 text-xs ${hasUnread ? 'font-semibold text-purple-600' : 'text-gray-400'}`}>
@@ -92,7 +114,7 @@ function ConversationCard({ match, onOpen }) {
           </div>
         </div>
         <div className="mt-1 flex items-center gap-2">
-          <p className={`min-w-0 flex-1 truncate text-sm ${hasUnread ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
+          <p className={`min-w-0 flex-1 truncate text-sm ${hasUnread || isNewMatch ? 'font-semibold text-gray-800' : 'text-gray-600'}`}>
             {getMatchPreview(match)}
           </p>
         </div>

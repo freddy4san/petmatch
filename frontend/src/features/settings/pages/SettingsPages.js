@@ -390,6 +390,26 @@ export function VerificationPage() {
 
 export function NotificationsPage({ app }) {
   const { matches, setCurrentScreen } = app;
+  const newMatches = matches.filter((match) => match.isNewMatch);
+  const unreadMatches = matches.filter((match) => match.hasUnread || Number(match.unreadCount) > 0);
+  const notifications = [
+    ...newMatches.map((match) => ({
+      id: `match-${match.id}`,
+      accentClassName: 'bg-purple-600 text-white',
+      title: 'New match',
+      body: `You matched with ${match.name}. Start chatting now.`,
+      time: formatNotificationTime(match.conversationCreatedAt || match.createdAt || match.updatedAt),
+      icon: '💜'
+    })),
+    ...unreadMatches.map((match) => ({
+      id: `message-${match.id}`,
+      accentClassName: 'bg-blue-100',
+      title: Number(match.unreadCount) > 1 ? `${match.unreadCount} new messages` : 'New message',
+      body: match.lastMessagePreview || `${match.name} sent you a message.`,
+      time: formatNotificationTime(match.lastActivityAt || match.updatedAt),
+      icon: '💬'
+    }))
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
@@ -402,42 +422,49 @@ export function NotificationsPage({ app }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-4 pb-8">
         <div className="space-y-3">
-          {matches.length > 0 ? (
-            <div className="bg-purple-50 border border-purple-200 rounded-2xl p-4">
+          {notifications.length > 0 ? notifications.map((notification) => (
+            <div key={notification.id} className="bg-white rounded-2xl p-4">
               <div className="flex items-start gap-3">
-                <div className="w-12 h-12 bg-purple-600 rounded-full flex items-center justify-center text-white flex-shrink-0">💜</div>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${notification.accentClassName}`}>{notification.icon}</div>
                 <div className="flex-1">
-                  <div className="font-semibold text-sm mb-1">New Match!</div>
-                  <div className="text-sm text-gray-600 mb-2">You matched with {matches[0].name}! Start chatting now.</div>
-                  <div className="text-xs text-purple-600">2 minutes ago</div>
+                  <div className="font-semibold text-sm mb-1">{notification.title}</div>
+                  <div className="text-sm text-gray-600 mb-2">{notification.body}</div>
+                  <div className="text-xs text-gray-400">{notification.time}</div>
                 </div>
               </div>
             </div>
-          ) : null}
-          <div className="bg-white rounded-2xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">💬</div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm mb-1">New Message</div>
-                <div className="text-sm text-gray-600 mb-2">Someone sent you a message</div>
-                <div className="text-xs text-gray-400">1 hour ago</div>
+          )) : (
+            <div className="rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-8 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 text-gray-400">
+                <Bell size={22} />
               </div>
+              <p className="font-semibold text-gray-700">No notifications</p>
+              <p className="mt-1 text-sm text-gray-500">New matches and unread messages will show up here.</p>
             </div>
-          </div>
-          <div className="bg-white rounded-2xl p-4">
-            <div className="flex items-start gap-3">
-              <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">⭐</div>
-              <div className="flex-1">
-                <div className="font-semibold text-sm mb-1">Someone liked your pet!</div>
-                <div className="text-sm text-gray-600 mb-2">Luna received a like</div>
-                <div className="text-xs text-gray-400">3 hours ago</div>
-              </div>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
   );
+}
+
+function formatNotificationTime(value) {
+  if (!value) {
+    return '';
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return '';
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    month: 'short'
+  }).format(date);
 }
 
 export function SettingsPage({ app }) {

@@ -81,6 +81,46 @@ describe('MatchesPage', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
     expect(screen.getByText('Are you free for a walk?')).toBeInTheDocument();
   });
+
+  it('shows new match indicators separately from unread messages', () => {
+    render(<MatchesPage app={createBaseApp({
+      matches: [
+        createMatch({
+          isNewMatch: true
+        })
+      ],
+      newMatchCount: 1,
+      unreadMatchCount: 0
+    })} />);
+
+    expect(screen.getByText('Matches (1)')).toBeInTheDocument();
+    expect(screen.getByLabelText(/new match/i)).toBeInTheDocument();
+    expect(screen.getByText('You matched. Say hello.')).toBeInTheDocument();
+  });
+
+  it('filters unread conversations without including new empty matches', () => {
+    render(<MatchesPage app={createBaseApp({
+      matches: [
+        createMatch({
+          id: 'match-new',
+          isNewMatch: true,
+          name: 'Luna'
+        }),
+        createMatch({
+          hasUnread: true,
+          id: 'match-unread',
+          lastMessagePreview: 'Want to meet?',
+          name: 'Milo',
+          unreadCount: 1
+        })
+      ],
+      matchesFilter: 'unread',
+      unreadMatchCount: 1
+    })} />);
+
+    expect(screen.getByText(/milo & owner/i)).toBeInTheDocument();
+    expect(screen.queryByText(/luna & owner/i)).not.toBeInTheDocument();
+  });
 });
 
 describe('ChatPage', () => {

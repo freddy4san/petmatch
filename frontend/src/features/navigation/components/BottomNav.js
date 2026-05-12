@@ -1,4 +1,7 @@
 export default function BottomNav({ active, matchCount, onNavigate }) {
+  const normalizedMatchCount = Number(matchCount) || 0;
+  const visibleMatchCount = normalizedMatchCount > 9 ? '9+' : normalizedMatchCount;
+
   return (
     <div
       className="z-20 w-full shrink-0 bg-gradient-to-r from-purple-500 to-indigo-600 border-t border-purple-300 flex justify-around items-center px-1 pt-2 pb-3 md:rounded-t-2xl"
@@ -19,9 +22,9 @@ export default function BottomNav({ active, matchCount, onNavigate }) {
       <button onClick={() => onNavigate('matches')} className="flex flex-col items-center gap-1 relative">
         <div className={`rounded-xl p-1.5 ${active === 'matches' ? 'bg-white' : ''}`}>
           <span className="text-xl">💬</span>
-          {matchCount > 0 ? (
+          {normalizedMatchCount > 0 ? (
             <div className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-white text-xs flex items-center justify-center font-bold">
-              {matchCount}
+              {visibleMatchCount}
             </div>
           ) : null}
         </div>
