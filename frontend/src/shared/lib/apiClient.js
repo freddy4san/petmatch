@@ -1,6 +1,9 @@
 const API_BASE_URL = normalizeApiBaseUrl(
   process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api'
 );
+const REALTIME_URL = normalizeApiBaseUrl(
+  process.env.REACT_APP_SOCKET_URL || API_BASE_URL.replace(/\/api$/, '')
+);
 const UNAUTHORIZED_EVENT_NAME = 'petmatch:unauthorized';
 
 export async function apiFetch(path, options = {}) {
@@ -36,6 +39,10 @@ export function getAuthHeaders(token) {
   return {
     Authorization: `Bearer ${token}`
   };
+}
+
+export function getRealtimeUrl() {
+  return REALTIME_URL;
 }
 
 function buildApiUrl(path) {

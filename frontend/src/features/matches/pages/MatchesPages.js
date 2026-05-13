@@ -204,14 +204,17 @@ function formatConversationTime(value) {
 export function ChatPage({ app }) {
   const {
     chatMessages,
+    closeChat = () => {},
     currentChatPet,
+    hasOlderMessages = false,
     handleSendMessage,
     isMessagesLoading,
+    isLoadingOlderMessages = false,
     isSendingMessage,
+    loadOlderMessages = () => {},
     messagesError,
     newMessage,
     refreshMessages = () => {},
-    setCurrentScreen,
     setNewMessage
   } = app;
   const messages = currentChatPet ? chatMessages[currentChatPet.id] || [] : [];
@@ -221,7 +224,7 @@ export function ChatPage({ app }) {
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
       <div className="sticky top-0 z-20 flex shrink-0 items-center gap-3 bg-gradient-to-r from-purple-500 to-indigo-600 px-4 pb-4 pt-[max(1rem,env(safe-area-inset-top))] text-white">
-        <button onClick={() => setCurrentScreen('matches')} className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-opacity-30" aria-label="Back to messages">
+        <button onClick={closeChat} className="w-10 h-10 bg-white bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0 hover:bg-opacity-30" aria-label="Back to messages">
           <ChevronLeft size={20} />
         </button>
         {currentChatPet?.image ? (
@@ -240,6 +243,13 @@ export function ChatPage({ app }) {
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {messagesError ? (
           <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{messagesError}</p>
+        ) : null}
+        {hasOlderMessages && messages.length > 0 ? (
+          <div className="mb-4 text-center">
+            <button type="button" onClick={loadOlderMessages} disabled={isLoadingOlderMessages} className="rounded-full border border-purple-100 bg-white px-4 py-2 text-sm font-semibold text-purple-600 shadow-sm hover:bg-purple-50 disabled:opacity-60">
+              {isLoadingOlderMessages ? 'Loading...' : 'Load older messages'}
+            </button>
+          </div>
         ) : null}
         {isMessagesLoading && messages.length === 0 ? (
           <MessageListSkeleton />

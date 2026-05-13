@@ -173,6 +173,30 @@ describe('ChatPage', () => {
     expect(handleSendMessage).toHaveBeenCalledTimes(1);
   });
 
+  it('loads older messages when more history is available', () => {
+    const loadOlderMessages = jest.fn();
+
+    render(<ChatPage app={createBaseApp({
+      chatMessages: {
+        'match-1': [
+          {
+            id: 'message-1',
+            sent: false,
+            text: 'Earlier hello',
+            time: '10:15 AM'
+          }
+        ]
+      },
+      currentChatPet: createMatch(),
+      hasOlderMessages: true,
+      loadOlderMessages
+    })} />);
+
+    fireEvent.click(screen.getByText(/load older messages/i));
+
+    expect(loadOlderMessages).toHaveBeenCalledTimes(1);
+  });
+
   it('disables sending while a message is being sent', () => {
     const { container } = render(<ChatPage app={createBaseApp({
       currentChatPet: createMatch(),

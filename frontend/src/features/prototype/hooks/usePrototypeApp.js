@@ -15,6 +15,7 @@ import {
   markConversationRead,
   sendMatchMessage
 } from '../../matches/api';
+import { createChatSocket } from '../../matches/socket';
 import { createPet, deletePet, deletePetImage, getUserPets, updatePet, uploadPetImage } from '../../pets/api';
 import {
   getImageCleanupWarning,
@@ -23,6 +24,7 @@ import {
 } from '../../pets/imageValidation';
 
 const UNAUTHORIZED_EVENT_NAME = 'petmatch:unauthorized';
+const MESSAGE_PAGE_SIZE = 50;
 const EMPTY_PET_FORM = {
   age: '',
   bio: '',
@@ -64,6 +66,7 @@ export function usePrototypeApp() {
   const [discoveryPets, setDiscoveryPets] = useState([]);
   const [currentChatPetId, setCurrentChatPetId] = useState(null);
   const [chatMessages, setChatMessages] = useState({});
+  const [chatPagination, setChatPagination] = useState({});
   const [newMessage, setNewMessage] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [showDistance, setShowDistance] = useState(true);
@@ -92,10 +95,14 @@ export function usePrototypeApp() {
   const [isMatchesLoading, setIsMatchesLoading] = useState(false);
   const [matchesError, setMatchesError] = useState('');
   const [isMessagesLoading, setIsMessagesLoading] = useState(false);
+  const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [matchesFilter, setMatchesFilter] = useState('all');
   const activeChatIdRef = useRef(null);
+  const activeConversationIdRef = useRef(null);
+  const chatSocketRef = useRef(null);
+  const chatSocketConnectedRef = useRef(false);
   const latestMessageRequestRef = useRef(0);
   const latestSendRequestRef = useRef(0);
   const readMessageIdsRef = useRef(new Set());
@@ -109,6 +116,7 @@ export function usePrototypeApp() {
     () => matches.find((match) => match.id === currentChatPetId) ?? null,
     [currentChatPetId, matches]
   );
+  const currentChatPagination = currentChatPetId ? chatPagination[currentChatPetId] : null;
   const editingPet = useMemo(
     () => petDraft,
     [petDraft]
@@ -184,18 +192,27 @@ export function usePrototypeApp() {
     }
   }, [authSession]);
 
-  const loadMessages = useCallback(async (matchId) => {
+  const loadMessages = useCallback(async (matchId, options = {}) => {
     if (!authSession?.token || !matchId) {
       return;
     }
 
+    const { before = '', prepend = false } = options;
     const requestId = latestMessageRequestRef.current + 1;
     latestMessageRequestRef.current = requestId;
-    setIsMessagesLoading(true);
+    if (prepend) {
+      setIsLoadingOlderMessages(true);
+    } else {
+      setIsMessagesLoading(true);
+    }
     setMessagesError('');
 
     try {
-      const messages = await getMatchMessages(authSession.token, matchId);
+      const messagePage = normalizeMessagePage(await getMatchMessages(authSession.token, matchId, {
+        before,
+        limit: MESSAGE_PAGE_SIZE
+      }));
+      const messages = messagePage.messages;
       const currentUserId = getAuthenticatedUserId(authSession);
 
       if (latestMessageRequestRef.current !== requestId || activeChatIdRef.current !== matchId) {
@@ -204,7 +221,14 @@ export function usePrototypeApp() {
 
       setChatMessages((prev) => ({
         ...prev,
-        [matchId]: (messages || []).map((message) => mapApiMessageToViewModel(message, currentUserId))
+        [matchId]: mergeChatMessages(
+          prev[matchId] || [],
+          (messages || []).map((message) => mapApiMessageToViewModel(message, currentUserId))
+        )
+      }));
+      setChatPagination((prev) => ({
+        ...prev,
+        [matchId]: messagePage.pagination
       }));
       (messages || []).forEach((message) => {
         if (message.senderUserId !== currentUserId) {
@@ -221,11 +245,97 @@ export function usePrototypeApp() {
 
       setMessagesError(error.message);
     } finally {
-      if (latestMessageRequestRef.current === requestId && activeChatIdRef.current === matchId) {
+      if (prepend) {
+        setIsLoadingOlderMessages(false);
+      } else if (latestMessageRequestRef.current === requestId && activeChatIdRef.current === matchId) {
         setIsMessagesLoading(false);
       }
     }
   }, [authSession]);
+
+  useEffect(() => {
+    if (!authSession?.token) {
+      chatSocketRef.current?.disconnect();
+      chatSocketRef.current = null;
+      chatSocketConnectedRef.current = false;
+      return undefined;
+    }
+
+    const socket = createChatSocket(authSession.token);
+    const currentUserId = getAuthenticatedUserId(authSession);
+    chatSocketRef.current = socket;
+
+    socket.on('connect', () => {
+      chatSocketConnectedRef.current = true;
+      if (activeConversationIdRef.current) {
+        socket.emit('conversation:join', { conversationId: activeConversationIdRef.current });
+      }
+    });
+    socket.on('disconnect', () => {
+      chatSocketConnectedRef.current = false;
+    });
+    socket.on('connect_error', () => {
+      chatSocketConnectedRef.current = false;
+    });
+    socket.on('message:new', (payload) => {
+      const message = payload?.message;
+      const matchId = payload?.matchId;
+
+      if (!message?.id || !matchId) {
+        return;
+      }
+
+      const isCurrentChat = activeChatIdRef.current === matchId;
+
+      setChatMessages((prev) => appendChatMessage(
+        prev,
+        matchId,
+        mapApiMessageToViewModel(message, currentUserId)
+      ));
+      setMatches((prev) => updateMatchLastMessage(
+        prev,
+        matchId,
+        message,
+        currentUserId,
+        { isCurrentChat }
+      ));
+
+      if (isCurrentChat && message.senderUserId !== currentUserId) {
+        readMessageIdsRef.current.add(message.id);
+        markConversationRead(authSession.token, message.conversationId).catch(() => {});
+      }
+    });
+
+    socket.connect();
+
+    return () => {
+      socket.disconnect();
+      if (chatSocketRef.current === socket) {
+        chatSocketRef.current = null;
+        chatSocketConnectedRef.current = false;
+      }
+    };
+  }, [authSession]);
+
+  useEffect(() => {
+    const socket = chatSocketRef.current;
+    const conversationId = currentChatPet?.conversationId;
+
+    if (!socket || !conversationId) {
+      activeConversationIdRef.current = null;
+      return undefined;
+    }
+
+    activeConversationIdRef.current = conversationId;
+    socket.emit('conversation:join', { conversationId });
+
+    return () => {
+      socket.emit('conversation:leave', { conversationId });
+      if (activeConversationIdRef.current === conversationId) {
+        activeConversationIdRef.current = null;
+      }
+    };
+  }, [currentChatPet?.conversationId]);
 
   useEffect(() => {
     if (!authSession?.token) {
@@ -234,6 +344,7 @@ export function usePrototypeApp() {
       setMatches([]);
       setLikedPets([]);
       setChatMessages({});
+      setChatPagination({});
       setEditingPetId(null);
       setPetDraft(EMPTY_PET_FORM);
       setActiveUserPetId('');
@@ -441,6 +552,12 @@ export function usePrototypeApp() {
     loadMessages(match.id);
   };
 
+  const closeChat = () => {
+    activeChatIdRef.current = null;
+    setCurrentChatPetId(null);
+    setCurrentScreen('matches');
+  };
+
   const dismissMatchCelebration = () => {
     setMatchCelebration(null);
   };
@@ -454,6 +571,19 @@ export function usePrototypeApp() {
     if (currentChatPetId) {
       loadMessages(currentChatPetId);
     }
+  };
+
+  const loadOlderMessages = () => {
+    const pagination = currentChatPetId ? chatPagination[currentChatPetId] : null;
+
+    if (!currentChatPetId || !pagination?.hasMore || !pagination.nextCursor || isLoadingOlderMessages) {
+      return;
+    }
+
+    loadMessages(currentChatPetId, {
+      before: pagination.nextCursor,
+      prepend: true
+    });
   };
 
   const handleSendMessage = async () => {
@@ -477,7 +607,12 @@ export function usePrototypeApp() {
     setMessagesError('');
 
     try {
-      const createdMessage = await sendMatchMessage(token, targetMatchId, messageBody);
+      const createdMessage = await sendMessageWithRealtimeFallback(
+        chatSocketRef.current,
+        token,
+        targetMatchId,
+        messageBody
+      );
       const currentUserId = getAuthenticatedUserId(authSession);
       const nextMessage = mapApiMessageToViewModel(createdMessage, currentUserId, true);
 
@@ -487,9 +622,9 @@ export function usePrototypeApp() {
 
       setChatMessages((prev) => ({
         ...prev,
-        [targetMatchId]: [...(prev[targetMatchId] || []), nextMessage]
+        [targetMatchId]: appendMessageIfMissing(prev[targetMatchId] || [], nextMessage)
       }));
-      setMatches((prev) => updateMatchLastMessage(prev, targetMatchId, createdMessage));
+      setMatches((prev) => updateMatchLastMessage(prev, targetMatchId, createdMessage, currentUserId));
       setNewMessage('');
     } catch (error) {
       if (latestSendRequestRef.current !== requestId || activeChatIdRef.current !== targetMatchId) {
@@ -514,6 +649,7 @@ export function usePrototypeApp() {
     setLikedPets([]);
     setDiscoveryPets([]);
     setChatMessages({});
+    setChatPagination({});
     setCurrentChatPetId(null);
     setUserPets([]);
     setPetDraft(EMPTY_PET_FORM);
@@ -886,12 +1022,14 @@ export function usePrototypeApp() {
     handleAuthSuccess,
     handleLogout,
     handleSendMessage,
+    closeChat,
     handleSwipe,
     isDiscoveryLoading,
     isEditingExistingPet: Boolean(editingPetId),
     isInteracting,
     isMatchesLoading,
     isMessagesLoading,
+    isLoadingOlderMessages,
     isPetsLoading,
     isSavingProfileDetails,
     isSavingProfileLocation,
@@ -912,6 +1050,8 @@ export function usePrototypeApp() {
     maxDistance,
     newMessage,
     notificationsEnabled,
+    hasOlderMessages: Boolean(currentChatPagination?.hasMore),
+    loadOlderMessages,
     openChat,
     petFormError,
     petsError,
@@ -1204,18 +1344,97 @@ function mapApiMessageToViewModel(message, currentUserId, forceSent = false) {
   };
 }
 
-function updateMatchLastMessage(matches, matchId, message) {
+function normalizeMessagePage(response) {
+  if (Array.isArray(response)) {
+    return {
+      messages: response,
+      pagination: {
+        hasMore: false,
+        nextCursor: null
+      }
+    };
+  }
+
+  return {
+    messages: Array.isArray(response?.messages) ? response.messages : [],
+    pagination: {
+      hasMore: Boolean(response?.pagination?.hasMore),
+      nextCursor: response?.pagination?.nextCursor || null
+    }
+  };
+}
+
+async function sendMessageWithRealtimeFallback(socket, token, matchId, body) {
+  if (!socket?.connected) {
+    return sendMatchMessage(token, matchId, body);
+  }
+
+  return sendSocketMessage(socket, matchId, body);
+}
+
+function sendSocketMessage(socket, matchId, body) {
+  return new Promise((resolve, reject) => {
+    socket.timeout(5000).emit('message:send', { matchId, body }, (error, response) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      if (!response?.success) {
+        reject(new Error(response?.error || 'Could not send message'));
+        return;
+      }
+
+      resolve(response.data);
+    });
+  });
+}
+
+function appendChatMessage(messagesByMatchId, matchId, message) {
+  return {
+    ...messagesByMatchId,
+    [matchId]: appendMessageIfMissing(messagesByMatchId[matchId] || [], message)
+  };
+}
+
+function appendMessageIfMissing(messages, message) {
+  if (messages.some((existingMessage) => existingMessage.id === message.id)) {
+    return messages;
+  }
+
+  return [...messages, message];
+}
+
+function mergeChatMessages(existingMessages, nextMessages) {
+  const messagesById = new Map();
+
+  existingMessages.forEach((message) => {
+    messagesById.set(message.id, message);
+  });
+  nextMessages.forEach((message) => {
+    messagesById.set(message.id, message);
+  });
+
+  return Array.from(messagesById.values()).sort((firstMessage, secondMessage) => (
+    new Date(firstMessage.createdAt).getTime() - new Date(secondMessage.createdAt).getTime()
+  ));
+}
+
+function updateMatchLastMessage(matches, matchId, message, currentUserId, options = {}) {
+  const sentByCurrentUser = Boolean(currentUserId && message.senderUserId === currentUserId);
+  const shouldMarkUnread = !sentByCurrentUser && !options.isCurrentChat;
+
   return matches.map((match) => (
     match.id === matchId
       ? {
           ...match,
-          hasUnread: false,
+          hasUnread: shouldMarkUnread ? true : false,
           isNewMatch: false,
           lastActivityAt: message.createdAt || match.updatedAt,
           lastMessage: message,
           lastMessagePreview: message.body || '',
-          lastMessageSentByCurrentUser: true,
-          unreadCount: 0,
+          lastMessageSentByCurrentUser: sentByCurrentUser,
+          unreadCount: shouldMarkUnread ? Number(match.unreadCount || 0) + 1 : 0,
           updatedAt: message.createdAt || match.updatedAt
         }
       : match

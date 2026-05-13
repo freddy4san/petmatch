@@ -33,6 +33,7 @@ const MESSAGE_SELECT = {
   body: true,
   createdAt: true,
 };
+const DEFAULT_MESSAGE_PAGE_SIZE = 50;
 
 function isUniqueConstraintError(error) {
   return (
@@ -278,6 +279,23 @@ async function findAccessibleConversationById(conversationId, userId) {
   return conversation;
 }
 
+async function getConversationRoomForUser(conversationId, userId) {
+  const conversation = await findAccessibleConversationById(
+    conversationId,
+    userId
+  );
+
+  return {
+    conversationId: conversation.id,
+    matchId: conversation.matchId,
+    room: getConversationRoomName(conversation.id),
+  };
+}
+
+function getConversationRoomName(conversationId) {
+  return `conversation:${conversationId}`;
+}
+
 async function getConversations(userId) {
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -352,24 +370,106 @@ async function getConversations(userId) {
   );
 }
 
-async function getMessages(userId, matchId) {
+async function getMessages(userId, matchId, options = {}) {
   const conversation = await findAccessibleConversation(matchId, userId);
 
   if (!conversation) {
-    return [];
+    return {
+      messages: [],
+      pagination: {
+        hasMore: false,
+        nextCursor: null,
+      },
+    };
   }
+
+  if (!options.limit && !options.before) {
+    const messages = await prisma.message.findMany({
+      where: {
+        conversationId: conversation.id,
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+      select: MESSAGE_SELECT,
+    });
+
+    return {
+      messages: messages.map(sanitizeMessage),
+      pagination: {
+        hasMore: false,
+        nextCursor: null,
+      },
+    };
+  }
+
+  const limit = Number(options.limit) || DEFAULT_MESSAGE_PAGE_SIZE;
+  const cursorMessage = options.before
+    ? await getMessageCursor(conversation.id, options.before)
+    : null;
 
   const messages = await prisma.message.findMany({
     where: {
       conversationId: conversation.id,
+      ...(cursorMessage
+        ? {
+            OR: [
+              {
+                createdAt: {
+                  lt: cursorMessage.createdAt,
+                },
+              },
+              {
+                createdAt: cursorMessage.createdAt,
+                id: {
+                  lt: cursorMessage.id,
+                },
+              },
+            ],
+          }
+        : {}),
     },
-    orderBy: {
-      createdAt: "asc",
-    },
+    orderBy: [
+      {
+        createdAt: "desc",
+      },
+      {
+        id: "desc",
+      },
+    ],
+    take: limit + 1,
     select: MESSAGE_SELECT,
   });
 
-  return messages.map(sanitizeMessage);
+  const hasMore = messages.length > limit;
+  const pageMessages = messages.slice(0, limit).reverse().map(sanitizeMessage);
+
+  return {
+    messages: pageMessages,
+    pagination: {
+      hasMore,
+      nextCursor: hasMore ? pageMessages[0]?.id || null : null,
+    },
+  };
+}
+
+async function getMessageCursor(conversationId, messageId) {
+  const message = await prisma.message.findFirst({
+    where: {
+      id: messageId,
+      conversationId,
+    },
+    select: {
+      id: true,
+      createdAt: true,
+    },
+  });
+
+  if (!message) {
+    throw createHttpError(404, "Message cursor not found");
+  }
+
+  return message;
 }
 
 async function createMessage(userId, matchId, { body }) {
@@ -467,6 +567,8 @@ async function markConversationRead(userId, conversationId) {
 module.exports = {
   createMessage,
   ensureConversationForMatch,
+  getConversationRoomForUser,
+  getConversationRoomName,
   getConversations,
   getMessages,
   markConversationRead,

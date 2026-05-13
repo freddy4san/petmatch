@@ -1,4 +1,5 @@
 const conversationsService = require("../services/conversations.service");
+const { emitMessageCreated } = require("../lib/realtime");
 
 async function list(req, res, next) {
   try {
@@ -17,14 +18,18 @@ async function list(req, res, next) {
 
 async function listMessages(req, res, next) {
   try {
-    const messages = await conversationsService.getMessages(
+    const messagePage = await conversationsService.getMessages(
       req.user.userId,
-      req.params.matchId
+      req.params.matchId,
+      req.query
     );
 
     return res.status(200).json({
       success: true,
-      data: messages,
+      data:
+        req.query.limit || req.query.before
+          ? messagePage
+          : messagePage.messages,
     });
   } catch (error) {
     return next(error);
@@ -38,6 +43,11 @@ async function createMessage(req, res, next) {
       req.params.matchId,
       req.body
     );
+
+    emitMessageCreated({
+      matchId: req.params.matchId,
+      message,
+    });
 
     return res.status(201).json({
       success: true,

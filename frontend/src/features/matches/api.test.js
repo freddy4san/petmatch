@@ -48,6 +48,30 @@ describe('matches chat api', () => {
     );
   });
 
+  it('fetches a paginated message page for a match', async () => {
+    mockApiResponse({
+      messages: [{ id: 'message-1', body: 'Hello' }],
+      pagination: { hasMore: true, nextCursor: 'message-1' }
+    });
+
+    await expect(getMatchMessages('token-1', 'match-1', {
+      before: 'message-2',
+      limit: 25
+    })).resolves.toEqual({
+      messages: [{ id: 'message-1', body: 'Hello' }],
+      pagination: { hasMore: true, nextCursor: 'message-1' }
+    });
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      'http://localhost:3001/api/matches/match-1/messages?limit=25&before=message-2',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer token-1'
+        })
+      })
+    );
+  });
+
   it('marks a conversation as read', async () => {
     mockApiResponse({ conversationId: 'conversation-1', unreadCount: 0 });
 

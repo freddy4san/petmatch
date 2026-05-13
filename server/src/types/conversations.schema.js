@@ -1,6 +1,7 @@
 const { z } = require("zod");
 
 const MAX_MESSAGE_BODY_LENGTH = 2000;
+const MAX_MESSAGE_PAGE_SIZE = 100;
 
 const listConversationsSchema = z.object({
   body: z.object({}).optional().default({}),
@@ -21,7 +22,18 @@ const listMatchMessagesSchema = z.object({
   params: z.object({
     matchId: z.string().trim().min(1, "Match id is required"),
   }),
-  query: z.object({}),
+  query: z.object({
+    before: z.string().trim().min(1, "Before cursor is required").optional(),
+    limit: z.coerce
+      .number()
+      .int()
+      .min(1, "Message limit must be at least 1")
+      .max(
+        MAX_MESSAGE_PAGE_SIZE,
+        `Message limit must be ${MAX_MESSAGE_PAGE_SIZE} or less`
+      )
+      .optional(),
+  }),
 });
 
 const createMatchMessageSchema = z.object({

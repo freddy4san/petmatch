@@ -319,7 +319,31 @@ user from the JWT.
 - Only users who own one of the matched pets can access messages.
 - Returns `404` when the match does not exist or is not accessible to the
   authenticated user.
-- Messages are ordered oldest first.
+- Without pagination query params, returns all messages ordered oldest first.
+- With `limit` or `before`, returns a paginated message page ordered oldest
+  first.
+- `limit` is optional, defaults to 50 when paginating, and may not exceed 100.
+- `before` is an optional message id cursor. When provided, the page contains
+  messages older than that message.
+- Paginated response:
+
+```json
+{
+  "messages": [
+    {
+      "id": "message_id",
+      "conversationId": "conversation_id",
+      "senderUserId": "user_id",
+      "body": "Hi there!",
+      "createdAt": "2026-04-23T00:00:00.000Z"
+    }
+  ],
+  "pagination": {
+    "hasMore": true,
+    "nextCursor": "oldest_message_id_in_this_page"
+  }
+}
+```
 
 ### Send Match Message
 
@@ -339,3 +363,33 @@ user from the JWT.
 - Returns the created message.
 - Returns `404` when the match does not exist or is not accessible to the
   authenticated user.
+
+### Realtime Chat
+
+Socket.IO is available on the backend origin, alongside the REST API.
+
+- Authenticate with `auth.token` or an `Authorization: Bearer <token>` header.
+- Join a room with `conversation:join` and `{ "conversationId": "..." }`.
+- Leave a room with `conversation:leave` and `{ "conversationId": "..." }`.
+- Send with `message:send` and `{ "matchId": "...", "body": "Hi there!" }`.
+- `message:send` persists the message before emitting.
+- New persisted messages are emitted to joined conversation rooms as
+  `message:new` with:
+
+```json
+{
+  "conversationId": "conversation_id",
+  "matchId": "match_id",
+  "message": {
+    "id": "message_id",
+    "conversationId": "conversation_id",
+    "senderUserId": "user_id",
+    "body": "Hi there!",
+    "createdAt": "2026-04-23T00:00:00.000Z"
+  },
+  "clientMessageId": null
+}
+```
+
+The REST message endpoints remain supported as fallback and REST-created
+messages also emit `message:new` to connected room members.

@@ -22,8 +22,20 @@ export function markConversationRead(token, conversationId) {
   });
 }
 
-export function getMatchMessages(token, matchId) {
-  return apiFetch(`/matches/${matchId}/messages`, {
+export function getMatchMessages(token, matchId, options = {}) {
+  const params = new URLSearchParams();
+
+  if (options.limit) {
+    params.set('limit', String(options.limit));
+  }
+
+  if (options.before) {
+    params.set('before', options.before);
+  }
+
+  const queryString = params.toString();
+
+  return apiFetch(`/matches/${matchId}/messages${queryString ? `?${queryString}` : ''}`, {
     headers: getAuthHeaders(token)
   });
 }
