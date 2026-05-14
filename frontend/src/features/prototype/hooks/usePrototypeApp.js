@@ -277,7 +277,7 @@ export function usePrototypeApp() {
     socket.on('connect_error', () => {
       chatSocketConnectedRef.current = false;
     });
-    socket.on('message:new', (payload) => {
+    const handleRealtimeMessage = (payload) => {
       const message = payload?.message;
       const matchId = payload?.matchId;
 
@@ -300,11 +300,18 @@ export function usePrototypeApp() {
         { isCurrentChat }
       ));
 
-      if (isCurrentChat && message.senderUserId !== currentUserId) {
+      if (
+        isCurrentChat &&
+        message.senderUserId !== currentUserId &&
+        !readMessageIdsRef.current.has(message.id)
+      ) {
         readMessageIdsRef.current.add(message.id);
         markConversationRead(authSession.token, message.conversationId).catch(() => {});
       }
-    });
+    };
+
+    socket.on('message:new', handleRealtimeMessage);
+    socket.on('conversation:updated', handleRealtimeMessage);
 
     socket.connect();
 

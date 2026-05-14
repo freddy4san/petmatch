@@ -45,6 +45,8 @@ function setupChatSocket(httpServer) {
   });
 
   io.on("connection", (socket) => {
+    socket.join(conversationsService.getUserRoomName(socket.user.userId));
+
     socket.on("conversation:join", async (payload = {}, acknowledge) => {
       try {
         const room = await conversationsService.getConversationRoomForUser(
@@ -88,7 +90,7 @@ function setupChatSocket(httpServer) {
           message,
         };
 
-        emitMessageCreated(io, eventPayload);
+        broadcastMessageCreated(io, eventPayload);
         acknowledge?.({
           success: true,
           data: message,
@@ -99,7 +101,7 @@ function setupChatSocket(httpServer) {
     });
   });
 
-  setMessageBroadcaster((payload) => emitMessageCreated(io, payload));
+  setMessageBroadcaster((payload) => broadcastMessageCreated(io, payload));
 
   return io;
 }
@@ -124,14 +126,17 @@ function getValidatedMessageBody(value) {
   return body;
 }
 
-function emitMessageCreated(io, payload) {
+async function emitMessageCreated(io, payload) {
   if (!payload?.message?.conversationId) {
     return;
   }
 
+  const delivery = await conversationsService.getConversationDelivery(
+    payload.message.conversationId
+  );
   const eventPayload = {
     conversationId: payload.message.conversationId,
-    matchId: payload.matchId,
+    matchId: payload.matchId || delivery.matchId,
     message: payload.message,
     clientMessageId: payload.clientMessageId || null,
   };
@@ -140,6 +145,18 @@ function emitMessageCreated(io, payload) {
     "message:new",
     eventPayload
   );
+  delivery.participantUserIds.forEach((userId) => {
+    io.to(conversationsService.getUserRoomName(userId)).emit(
+      "conversation:updated",
+      eventPayload
+    );
+  });
+}
+
+function broadcastMessageCreated(io, payload) {
+  emitMessageCreated(io, payload).catch((error) => {
+    console.error("Failed to emit realtime message update", error);
+  });
 }
 
 function getSocketToken(socket) {

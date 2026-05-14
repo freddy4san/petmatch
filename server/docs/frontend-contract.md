@@ -369,6 +369,8 @@ user from the JWT.
 Socket.IO is available on the backend origin, alongside the REST API.
 
 - Authenticate with `auth.token` or an `Authorization: Bearer <token>` header.
+- Authenticated sockets automatically join a per-user room for lightweight
+  inbox updates.
 - Join a room with `conversation:join` and `{ "conversationId": "..." }`.
 - Leave a room with `conversation:leave` and `{ "conversationId": "..." }`.
 - Send with `message:send` and `{ "matchId": "...", "body": "Hi there!" }`.
@@ -391,5 +393,10 @@ Socket.IO is available on the backend origin, alongside the REST API.
 }
 ```
 
+- New persisted messages are also emitted to both matched users as
+  `conversation:updated` with the same payload. The frontend uses this event to
+  update unread counts and last-message previews while the user is outside the
+  active chat screen.
 The REST message endpoints remain supported as fallback and REST-created
-messages also emit `message:new` to connected room members.
+messages also emit `message:new` to connected room members and
+`conversation:updated` to matched users.

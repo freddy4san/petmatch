@@ -296,6 +296,53 @@ function getConversationRoomName(conversationId) {
   return `conversation:${conversationId}`;
 }
 
+function getUserRoomName(userId) {
+  return `user:${userId}`;
+}
+
+async function getConversationDelivery(conversationId) {
+  const conversation = await prisma.conversation.findUnique({
+    where: {
+      id: conversationId,
+    },
+    select: {
+      id: true,
+      matchId: true,
+      match: {
+        select: {
+          pet1: {
+            select: {
+              ownerId: true,
+            },
+          },
+          pet2: {
+            select: {
+              ownerId: true,
+            },
+          },
+        },
+      },
+    },
+  });
+
+  if (!conversation) {
+    throw createHttpError(404, "Conversation not found");
+  }
+
+  return {
+    conversationId: conversation.id,
+    matchId: conversation.matchId,
+    participantUserIds: [
+      ...new Set(
+        [
+          conversation.match.pet1.ownerId,
+          conversation.match.pet2.ownerId,
+        ].filter(Boolean)
+      ),
+    ],
+  };
+}
+
 async function getConversations(userId) {
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -567,9 +614,11 @@ async function markConversationRead(userId, conversationId) {
 module.exports = {
   createMessage,
   ensureConversationForMatch,
+  getConversationDelivery,
   getConversationRoomForUser,
   getConversationRoomName,
   getConversations,
   getMessages,
+  getUserRoomName,
   markConversationRead,
 };
