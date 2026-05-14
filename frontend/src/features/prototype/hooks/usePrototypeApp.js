@@ -103,6 +103,7 @@ export function usePrototypeApp() {
   const activeConversationIdRef = useRef(null);
   const chatSocketRef = useRef(null);
   const chatSocketConnectedRef = useRef(false);
+  const currentScreenRef = useRef(currentScreen);
   const latestMessageRequestRef = useRef(0);
   const latestSendRequestRef = useRef(0);
   const readMessageIdsRef = useRef(new Set());
@@ -130,6 +131,10 @@ export function usePrototypeApp() {
     [matches]
   );
   const matchNotificationCount = unreadMatchCount + newMatchCount;
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
+
   const navigateToScreen = useCallback((screen) => {
     if (isProtectedScreen(screen) && !authSession?.token && !hasStoredAuthSession()) {
       setCurrentScreen('welcome');
@@ -285,7 +290,7 @@ export function usePrototypeApp() {
         return;
       }
 
-      const isCurrentChat = activeChatIdRef.current === matchId;
+      const isCurrentChat = currentScreenRef.current === 'chat' && activeChatIdRef.current === matchId;
 
       setChatMessages((prev) => appendChatMessage(
         prev,
@@ -326,7 +331,7 @@ export function usePrototypeApp() {
 
   useEffect(() => {
     const socket = chatSocketRef.current;
-    const conversationId = currentChatPet?.conversationId;
+    const conversationId = currentScreen === 'chat' ? currentChatPet?.conversationId : null;
 
     if (!socket || !conversationId) {
       activeConversationIdRef.current = null;
@@ -342,7 +347,7 @@ export function usePrototypeApp() {
         activeConversationIdRef.current = null;
       }
     };
-  }, [currentChatPet?.conversationId]);
+  }, [currentChatPet?.conversationId, currentScreen]);
 
   useEffect(() => {
     if (!authSession?.token) {

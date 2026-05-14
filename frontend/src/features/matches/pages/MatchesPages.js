@@ -1,4 +1,7 @@
+import { useEffect, useMemo, useRef } from 'react';
 import { ArrowLeft, ChevronLeft, Inbox, MessageCircle, Paperclip, RefreshCw, Search, Send } from 'lucide-react';
+
+const EMPTY_MESSAGES = [];
 
 export function MatchesPage({ app }) {
   const {
@@ -217,9 +220,31 @@ export function ChatPage({ app }) {
     refreshMessages = () => {},
     setNewMessage
   } = app;
-  const messages = currentChatPet ? chatMessages[currentChatPet.id] || [] : [];
+  const currentChatPetId = currentChatPet?.id || null;
+  const messages = useMemo(() => (
+    currentChatPetId ? chatMessages[currentChatPetId] || EMPTY_MESSAGES : EMPTY_MESSAGES
+  ), [chatMessages, currentChatPetId]);
   const canSend = Boolean(newMessage.trim()) && !isSendingMessage && Boolean(currentChatPet);
-  const messageGroups = groupMessagesByDay(messages);
+  const displayMessages = useMemo(() => getMessagesWithTimestampVisibility(messages), [messages]);
+  const messageGroups = groupMessagesByDay(displayMessages);
+  const scrollContainerRef = useRef(null);
+  const bottomRef = useRef(null);
+  const previousChatIdRef = useRef(currentChatPet?.id || null);
+  const previousMessageCountRef = useRef(messages.length);
+
+  useEffect(() => {
+    const previousChatId = previousChatIdRef.current;
+    const previousMessageCount = previousMessageCountRef.current;
+    const isNewChat = currentChatPet?.id && previousChatId !== currentChatPet.id;
+    const hasNewMessage = messages.length > previousMessageCount;
+
+    if (!isLoadingOlderMessages && (isNewChat || hasNewMessage || (!isMessagesLoading && messages.length > 0))) {
+      bottomRef.current?.scrollIntoView?.({ block: 'end' });
+    }
+
+    previousChatIdRef.current = currentChatPet?.id || null;
+    previousMessageCountRef.current = messages.length;
+  }, [currentChatPet?.id, isLoadingOlderMessages, isMessagesLoading, messages.length]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
@@ -240,7 +265,7 @@ export function ChatPage({ app }) {
           <RefreshCw size={18} />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-4">
+      <div ref={scrollContainerRef} className="min-h-0 flex-1 overflow-y-auto p-4">
         {messagesError ? (
           <p className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-600">{messagesError}</p>
         ) : null}
@@ -263,10 +288,11 @@ export function ChatPage({ app }) {
               <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-gray-400 shadow-sm">{group.label}</span>
             </div>
             {group.messages.map((message) => (
-              <MessageBubble key={message.id} message={message} />
+              <MessageBubble key={message.id} message={message} showTime={message.showTime} />
             ))}
           </div>
         ))}
+        <div ref={bottomRef} />
       </div>
       <form
         className="flex shrink-0 items-center gap-2 border-t border-gray-200 bg-white p-4"
@@ -288,14 +314,16 @@ export function ChatPage({ app }) {
   );
 }
 
-function MessageBubble({ message }) {
+function MessageBubble({ message, showTime = true }) {
   return (
-    <div className={`mb-4 flex ${message.sent ? 'justify-end' : 'justify-start'}`}>
+    <div className={`flex ${showTime ? 'mb-4' : 'mb-1'} ${message.sent ? 'justify-end' : 'justify-start'}`}>
       <div className={`max-w-[78%] ${message.sent ? 'text-right' : 'text-left'}`}>
         <div className={`inline-block break-words px-4 py-3 text-sm shadow-sm ${message.sent ? 'rounded-2xl rounded-br bg-gradient-to-r from-purple-500 to-indigo-600 text-white' : 'rounded-2xl rounded-bl border border-gray-100 bg-white text-gray-800'}`}>
           {message.text}
         </div>
-        <p className="mt-1 px-1 text-xs text-gray-400">{message.time}</p>
+        {showTime ? (
+          <p className="mt-1 px-1 text-xs text-gray-400">{message.time}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -350,6 +378,18 @@ function groupMessagesByDay(messages) {
 
     return groups;
   }, []);
+}
+
+function getMessagesWithTimestampVisibility(messages) {
+  return messages.map((message, index) => {
+    const nextMessage = messages[index + 1];
+    const showTime = !nextMessage || nextMessage.sent !== message.sent || formatMessageDay(nextMessage.createdAt) !== formatMessageDay(message.createdAt);
+
+    return {
+      ...message,
+      showTime
+    };
+  });
 }
 
 function formatMessageDay(value) {
