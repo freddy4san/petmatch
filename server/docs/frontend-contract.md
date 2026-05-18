@@ -438,3 +438,41 @@ Socket.IO is available on the backend origin, alongside the REST API.
 The REST message endpoints remain supported as fallback and REST-created
 messages also emit `message:new` to connected room members and
 `conversation:updated` to matched users.
+
+### Realtime Match Notifications
+
+When a `LIKE` creates a new mutual match, connected clients for both matched
+pet owners receive `match:new` on their authenticated per-user socket room.
+This event is an in-app notification only; REST remains the source of truth for
+creating likes and matches.
+
+```json
+{
+  "conversation": {
+    "id": "conversation_id",
+    "matchId": "match_id",
+    "createdAt": "2026-04-23T00:00:00.000Z",
+    "updatedAt": "2026-04-23T00:00:00.000Z",
+    "match": {
+      "id": "match_id",
+      "petIds": ["pet_1", "pet_2"],
+      "createdAt": "2026-04-23T00:00:00.000Z",
+      "currentPet": {},
+      "otherPet": {}
+    },
+    "lastMessage": null,
+    "lastMessagePreview": null,
+    "latestMessageAt": null,
+    "lastReadAt": null,
+    "unreadCount": 0,
+    "hasUnread": false,
+    "isNewMatch": true
+  },
+  "triggeredByUserId": "user_id"
+}
+```
+
+- `conversation` uses the same user-specific shape as `GET /api/conversations`.
+- `triggeredByUserId` is the user who sent the final like. Clients can use it
+  to avoid showing a duplicate celebration to the user who already received the
+  REST match response.

@@ -7,6 +7,12 @@ const { ZodError } = require("zod");
 const app = require("../src/app");
 const prisma = require("../src/lib/prisma");
 const {
+  emitMatchCreated,
+  emitMessageCreated,
+  setMatchBroadcaster,
+  setMessageBroadcaster,
+} = require("../src/lib/realtime");
+const {
   AUTH_RATE_LIMIT_MESSAGE,
   createAuthRateLimiter,
 } = require("../src/middleware/auth-rate-limit.middleware");
@@ -212,6 +218,39 @@ test("email verification validation accepts GET requests without a body", async 
   assert.equal(error, null);
   assert.deepEqual(req.body, {});
   assert.equal(req.query.token, "verification-token");
+});
+
+test("realtime broadcasters route message and match payloads separately", () => {
+  const messagePayloads = [];
+  const matchPayloads = [];
+
+  setMessageBroadcaster((payload) => messagePayloads.push(payload));
+  setMatchBroadcaster((payload) => matchPayloads.push(payload));
+
+  emitMessageCreated({
+    message: {
+      id: "message-1",
+    },
+  });
+  emitMatchCreated({
+    matchId: "match-1",
+  });
+
+  assert.deepEqual(messagePayloads, [
+    {
+      message: {
+        id: "message-1",
+      },
+    },
+  ]);
+  assert.deepEqual(matchPayloads, [
+    {
+      matchId: "match-1",
+    },
+  ]);
+
+  setMessageBroadcaster(null);
+  setMatchBroadcaster(null);
 });
 
 test("discovery filters normalize valid query params", async () => {

@@ -1,6 +1,7 @@
 const { Prisma } = require("@prisma/client");
 
 const conversationsService = require("./conversations.service");
+const { emitMatchCreated } = require("../lib/realtime");
 const prisma = require("../lib/prisma");
 const { createHttpError } = require("../lib/helpers");
 
@@ -113,32 +114,30 @@ async function ensureReciprocalMatch(fromPetId, toPetId) {
   const [pet1Id, pet2Id] = getMatchPetIds(fromPetId, toPetId);
 
   try {
-    return await prisma.$transaction(async (tx) => {
-      const match = await tx.match.upsert({
-        where: {
-          pet1Id_pet2Id: {
-            pet1Id,
-            pet2Id,
-          },
-        },
-        create: {
+    const match = await prisma.$transaction(async (tx) => {
+      const createdMatch = await tx.match.create({
+        data: {
           pet1Id,
           pet2Id,
         },
-        update: {},
         select: MATCH_SELECT,
       });
 
-      await conversationsService.ensureConversationForMatch(match.id, tx);
+      await conversationsService.ensureConversationForMatch(createdMatch.id, tx);
 
-      return match;
+      return createdMatch;
     });
+
+    return {
+      match,
+      wasCreated: true,
+    };
   } catch (error) {
     if (!isUniqueConstraintError(error)) {
       throw error;
     }
 
-    return prisma.$transaction(async (tx) => {
+    const match = await prisma.$transaction(async (tx) => {
       const match = await tx.match.findUnique({
         where: {
           pet1Id_pet2Id: {
@@ -155,6 +154,11 @@ async function ensureReciprocalMatch(fromPetId, toPetId) {
 
       return match;
     });
+
+    return {
+      match,
+      wasCreated: false,
+    };
   }
 }
 
@@ -170,8 +174,16 @@ async function createInteraction(userId, { fromPetId, toPetId, type }) {
       },
       select: INTERACTION_SELECT,
     });
-    const match =
+    const matchResult =
       type === "LIKE" ? await ensureReciprocalMatch(fromPetId, toPetId) : null;
+    const match = matchResult?.match || null;
+
+    if (matchResult?.wasCreated && match) {
+      emitMatchCreated({
+        matchId: match.id,
+        triggeredByUserId: userId,
+      });
+    }
 
     return {
       interaction: sanitizeInteraction(interaction),
@@ -205,8 +217,9 @@ async function getExistingInteractionResult(fromPetId, toPetId, type) {
     throw createHttpError(409, "Interaction already exists");
   }
 
-  const match =
+  const matchResult =
     type === "LIKE" ? await ensureReciprocalMatch(fromPetId, toPetId) : null;
+  const match = matchResult?.match || null;
 
   return {
     interaction: sanitizeInteraction(interaction),

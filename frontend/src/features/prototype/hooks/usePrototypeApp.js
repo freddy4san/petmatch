@@ -327,9 +327,35 @@ export function usePrototypeApp() {
         markConversationRead(authSession.token, message.conversationId).catch(() => {});
       }
     };
+    const handleRealtimeMatch = (payload) => {
+      const conversation = payload?.conversation;
+
+      if (!conversation?.id || !conversation?.match?.id) {
+        return;
+      }
+
+      const realtimeMatch = mapApiConversationToViewModel(
+        conversation,
+        currentUserId,
+        readMessageIdsRef.current
+      );
+
+      setMatches((prev) => upsertRealtimeMatch(prev, realtimeMatch));
+
+      if (payload.triggeredByUserId && payload.triggeredByUserId === currentUserId) {
+        return;
+      }
+
+      setMatchCelebration({
+        id: realtimeMatch.id,
+        matchedPet: realtimeMatch.otherPet,
+        userPet: realtimeMatch.currentPet
+      });
+    };
 
     socket.on('message:new', handleRealtimeMessage);
     socket.on('conversation:updated', handleRealtimeMessage);
+    socket.on('match:new', handleRealtimeMatch);
 
     socket.connect();
 
@@ -1556,6 +1582,26 @@ function updateMatchLastMessage(matches, matchId, message, currentUserId, option
           lastMessageSentByCurrentUser: sentByCurrentUser,
           unreadCount: shouldMarkUnread ? Number(match.unreadCount || 0) + 1 : 0,
           updatedAt: message.createdAt || match.updatedAt
+        }
+      : match
+  ));
+}
+
+function upsertRealtimeMatch(matches, nextMatch) {
+  const existingIndex = matches.findIndex((match) => match.id === nextMatch.id);
+
+  if (existingIndex === -1) {
+    return [nextMatch, ...matches];
+  }
+
+  return matches.map((match) => (
+    match.id === nextMatch.id
+      ? {
+          ...match,
+          ...nextMatch,
+          hasUnread: match.hasUnread || nextMatch.hasUnread,
+          isNewMatch: Boolean(match.isNewMatch),
+          unreadCount: Math.max(Number(match.unreadCount) || 0, Number(nextMatch.unreadCount) || 0)
         }
       : match
   ));

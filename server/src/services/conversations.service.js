@@ -343,6 +343,90 @@ async function getConversationDelivery(conversationId) {
   };
 }
 
+async function getMatchNotificationDelivery(matchId) {
+  const conversation = await prisma.conversation.findUnique({
+    where: {
+      matchId,
+    },
+    select: {
+      id: true,
+      createdAt: true,
+      matchId: true,
+      updatedAt: true,
+      match: {
+        select: {
+          id: true,
+          pet1Id: true,
+          pet2Id: true,
+          createdAt: true,
+          pet1: {
+            select: MATCH_PET_SELECT,
+          },
+          pet2: {
+            select: MATCH_PET_SELECT,
+          },
+        },
+      },
+      messages: {
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 1,
+        select: MESSAGE_SELECT,
+      },
+      readStates: {
+        select: {
+          userId: true,
+          lastReadAt: true,
+          lastReadMessageId: true,
+        },
+      },
+    },
+  });
+
+  if (!conversation) {
+    throw createHttpError(404, "Conversation not found");
+  }
+
+  const participantUserIds = [
+    ...new Set(
+      [
+        conversation.match.pet1.ownerId,
+        conversation.match.pet2.ownerId,
+      ].filter(Boolean)
+    ),
+  ];
+
+  return {
+    conversationId: conversation.id,
+    matchId: conversation.matchId,
+    participants: await Promise.all(
+      participantUserIds.map(async (userId) => {
+        const readState = conversation.readStates.find(
+          (state) => state.userId === userId
+        );
+        const unreadCount = await getUnreadCount(
+          conversation.id,
+          userId,
+          readState?.lastReadAt || null
+        );
+
+        return {
+          userId,
+          conversation: sanitizeConversation(
+            {
+              ...conversation,
+              readStates: readState ? [readState] : [],
+            },
+            userId,
+            unreadCount
+          ),
+        };
+      })
+    ),
+  };
+}
+
 async function getConversations(userId) {
   const conversations = await prisma.conversation.findMany({
     where: {
@@ -615,6 +699,7 @@ module.exports = {
   createMessage,
   ensureConversationForMatch,
   getConversationDelivery,
+  getMatchNotificationDelivery,
   getConversationRoomForUser,
   getConversationRoomName,
   getConversations,

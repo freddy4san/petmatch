@@ -1,7 +1,10 @@
 const { Server } = require("socket.io");
 
 const { verifyToken } = require("./lib/jwt");
-const { setMessageBroadcaster } = require("./lib/realtime");
+const {
+  setMatchBroadcaster,
+  setMessageBroadcaster,
+} = require("./lib/realtime");
 const conversationsService = require("./services/conversations.service");
 
 const MAX_MESSAGE_BODY_LENGTH = 2000;
@@ -102,6 +105,7 @@ function setupChatSocket(httpServer) {
   });
 
   setMessageBroadcaster((payload) => broadcastMessageCreated(io, payload));
+  setMatchBroadcaster((payload) => broadcastMatchCreated(io, payload));
 
   return io;
 }
@@ -156,6 +160,32 @@ async function emitMessageCreated(io, payload) {
 function broadcastMessageCreated(io, payload) {
   emitMessageCreated(io, payload).catch((error) => {
     console.error("Failed to emit realtime message update", error);
+  });
+}
+
+async function emitMatchCreated(io, payload) {
+  if (!payload?.matchId) {
+    return;
+  }
+
+  const delivery = await conversationsService.getMatchNotificationDelivery(
+    payload.matchId
+  );
+
+  delivery.participants.forEach((participant) => {
+    io.to(conversationsService.getUserRoomName(participant.userId)).emit(
+      "match:new",
+      {
+        conversation: participant.conversation,
+        triggeredByUserId: payload.triggeredByUserId || null,
+      }
+    );
+  });
+}
+
+function broadcastMatchCreated(io, payload) {
+  emitMatchCreated(io, payload).catch((error) => {
+    console.error("Failed to emit realtime match update", error);
   });
 }
 
