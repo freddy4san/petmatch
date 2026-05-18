@@ -2,8 +2,8 @@ import BottomNav from '../features/navigation/components/BottomNav';
 import { usePrototypeApp } from '../features/prototype/hooks/usePrototypeApp';
 import { renderPrototypeScreen } from './renderPrototypeScreen';
 
-const HIDE_NAV_SCREENS = new Set(['welcome', 'login', 'signup', 'petSetup', 'notifications']);
-const DOCUMENT_SCROLL_SCREENS = new Set(['welcome', 'login', 'signup', 'petSetup']);
+const HIDE_NAV_SCREENS = new Set(['welcome', 'login', 'signup', 'petSetup', 'notifications', 'verification']);
+const DOCUMENT_SCROLL_SCREENS = new Set(['welcome', 'login', 'signup', 'petSetup', 'verification']);
 
 export default function AppShell() {
   const app = usePrototypeApp();

@@ -8,17 +8,21 @@ datasource db {
 }
 
 model User {
-  id                     String                  @id @default(cuid())
-  email                  String                  @unique
-  fullName               String?
-  phoneNumber            String?                 @unique
-  bio                    String?
-  city                   String?
-  password               String
-  createdAt              DateTime                @default(now())
-  pets                   Pet[]
-  sentMessages           Message[]               @relation("SentMessages")
-  conversationReadStates ConversationReadState[]
+  id                         String                  @id @default(cuid())
+  email                      String                  @unique
+  isVerified                 Boolean                 @default(false)
+  emailVerificationTokenHash String?                 @unique
+  emailVerificationExpiresAt DateTime?
+  verifiedAt                 DateTime?
+  fullName                   String?
+  phoneNumber                String?                 @unique
+  bio                        String?
+  city                       String?
+  password                   String
+  createdAt                  DateTime                @default(now())
+  pets                       Pet[]
+  sentMessages               Message[]               @relation("SentMessages")
+  conversationReadStates     ConversationReadState[]
 }
 
 model Pet {

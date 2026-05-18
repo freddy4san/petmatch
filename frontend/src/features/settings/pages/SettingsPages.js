@@ -1,4 +1,7 @@
-import { ArrowLeft, Bell, Settings, X } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ArrowLeft, Bell, MailCheck, Settings, X } from 'lucide-react';
+
+import { VerificationStateIcon, VerifiedBadge } from '../../auth/components/EmailVerification';
 
 export function PreferencesPage({ app }) {
   const {
@@ -351,41 +354,153 @@ export function PrivacyPage({ app }) {
   );
 }
 
-export function VerificationPage() {
+export function VerificationPage({ app }) {
+  const {
+    authSession,
+    emailVerificationError,
+    emailVerificationResult,
+    isResendingVerification,
+    isVerifyingEmail,
+    resendVerificationEmail = async () => {},
+    resendVerificationError,
+    resendVerificationMessage,
+    setCurrentScreen,
+    verifyEmailToken = async () => {}
+  } = app;
+  const token = getVerificationTokenFromUrl();
+  const verifiedTokenRef = useRef('');
+  const isVerified = Boolean(authSession?.user?.isVerified || emailVerificationResult?.user?.isVerified);
+  const state = emailVerificationError ? 'error' : (isVerified || emailVerificationResult?.verified ? 'success' : 'idle');
+
+  useEffect(() => {
+    if (token && verifiedTokenRef.current !== token) {
+      verifiedTokenRef.current = token;
+      verifyEmailToken(token);
+    }
+  }, [token, verifyEmailToken]);
+
   return (
-    <div className="flex h-full min-h-0 flex-col bg-gray-50">
+    <div className="flex min-h-[100dvh] flex-col bg-gray-50">
       <div className="sticky top-0 z-20 flex shrink-0 items-center justify-between bg-gradient-to-r from-purple-500 to-indigo-600 px-6 pb-6 pt-[max(1.5rem,env(safe-area-inset-top))] text-white">
-        <div className="w-10"></div>
+        <button onClick={() => setCurrentScreen(authSession?.token ? 'settings' : 'login')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+          <ArrowLeft size={20} />
+        </button>
         <h1 className="text-2xl font-bold">Verification</h1>
         <div className="w-10"></div>
       </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-y-auto p-6 pb-8">
-        <div className="text-center">
-          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <div className="text-5xl text-green-600">✓</div>
-          </div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Account Verified</h2>
-          <p className="text-gray-600 mb-6">Your account has been successfully verified</p>
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-3 mb-3">
-              <div className="text-green-600 text-xl">✓</div>
-              <div className="text-left">
-                <div className="font-semibold text-sm">Email Verified</div>
-                <div className="text-xs text-gray-500">bhavana@example.com</div>
-              </div>
-            </div>
+      <div className="flex flex-1 items-center justify-center p-6 pb-8">
+        <div className="w-full max-w-md text-center">
+          <VerificationStateIcon state={isVerifyingEmail ? 'idle' : state} />
+          <h2 className="mb-2 text-2xl font-bold text-gray-900">
+            {getVerificationTitle({ emailVerificationError, isVerifyingEmail, isVerified })}
+          </h2>
+          <p className="mb-6 text-gray-600">
+            {getVerificationCopy({ authSession, emailVerificationError, isVerifyingEmail, isVerified })}
+          </p>
+
+          {emailVerificationError ? (
+            <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {emailVerificationError}
+            </p>
+          ) : null}
+
+          {resendVerificationMessage ? (
+            <p className="mb-4 rounded-2xl bg-green-50 px-4 py-3 text-sm font-semibold text-green-700">
+              {resendVerificationMessage}
+            </p>
+          ) : null}
+
+          {resendVerificationError ? (
+            <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm font-semibold text-red-600">
+              {resendVerificationError}
+            </p>
+          ) : null}
+
+          <div className="bg-white rounded-2xl p-6 text-left shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="text-green-600 text-xl">✓</div>
-              <div className="text-left">
-                <div className="font-semibold text-sm">Phone Verified</div>
-                <div className="text-xs text-gray-500">+61 *** *** 123</div>
+              <div className={`flex h-11 w-11 items-center justify-center rounded-full ${isVerified ? 'bg-green-100 text-green-600' : 'bg-amber-100 text-amber-700'}`}>
+                <MailCheck size={22} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="font-semibold text-sm">Email verification</div>
+                  <VerifiedBadge isVerified={isVerified} />
+                </div>
+                <div className="truncate text-xs text-gray-500">
+                  {authSession?.user?.email || emailVerificationResult?.user?.email || 'Sign in to resend a verification email'}
+                </div>
               </div>
             </div>
           </div>
+
+          {!isVerified && authSession?.token ? (
+            <button
+              type="button"
+              onClick={resendVerificationEmail}
+              disabled={isResendingVerification || isVerifyingEmail}
+              className="mt-5 w-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 py-4 font-semibold text-white transition-all hover:shadow-lg disabled:opacity-70"
+            >
+              {isResendingVerification ? 'Sending...' : 'Resend verification email'}
+            </button>
+          ) : null}
+
+          {!authSession?.token ? (
+            <button
+              type="button"
+              onClick={() => setCurrentScreen('login')}
+              className="mt-5 w-full rounded-full bg-gradient-to-r from-purple-500 to-indigo-600 py-4 font-semibold text-white transition-all hover:shadow-lg"
+            >
+              Sign in
+            </button>
+          ) : null}
         </div>
       </div>
     </div>
   );
+}
+
+function getVerificationTokenFromUrl() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return new URLSearchParams(window.location.search).get('token') || '';
+}
+
+function getVerificationTitle({ emailVerificationError, isVerifyingEmail, isVerified }) {
+  if (isVerifyingEmail) {
+    return 'Verifying email';
+  }
+
+  if (isVerified) {
+    return 'Email verified';
+  }
+
+  if (emailVerificationError) {
+    return 'Verification link failed';
+  }
+
+  return 'Verify your email';
+}
+
+function getVerificationCopy({ authSession, emailVerificationError, isVerifyingEmail, isVerified }) {
+  if (isVerifyingEmail) {
+    return 'Checking your verification link now.';
+  }
+
+  if (isVerified) {
+    return 'Your account now shows as verified across PetMatch.';
+  }
+
+  if (emailVerificationError) {
+    return 'The link may be expired or already used. You can request a fresh email after signing in.';
+  }
+
+  if (authSession?.token) {
+    return `We will send a verification link to ${authSession.user?.email || 'your email address'}.`;
+  }
+
+  return 'Open the verification link from your email, or sign in to request a new one.';
 }
 
 export function NotificationsPage({ app }) {
@@ -468,7 +583,8 @@ function formatNotificationTime(value) {
 }
 
 export function SettingsPage({ app }) {
-  const { handleLogout, notificationsEnabled, setCurrentScreen, setNotificationsEnabled, theme } = app;
+  const { authSession, handleLogout, notificationsEnabled, setCurrentScreen, setNotificationsEnabled, theme } = app;
+  const isVerified = Boolean(authSession?.user?.isVerified);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-gray-50">
@@ -535,9 +651,11 @@ export function SettingsPage({ app }) {
               </div>
               <div className="flex-1 min-w-0">
                 <div className="font-semibold text-sm text-gray-900">Account Verification</div>
-                <div className="text-xs text-gray-500">Verify your identity</div>
+                <div className="text-xs text-gray-500">{isVerified ? 'Email verified' : 'Verify your email address'}</div>
               </div>
-              <div className="bg-green-500 px-3 py-1 rounded-full text-xs font-bold text-white flex-shrink-0">Active</div>
+              <div className={`${isVerified ? 'bg-green-500 text-white' : 'bg-amber-100 text-amber-700'} px-3 py-1 rounded-full text-xs font-bold flex-shrink-0`}>
+                {isVerified ? 'Verified' : 'Pending'}
+              </div>
             </div>
           </div>
         </div>

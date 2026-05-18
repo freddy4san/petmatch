@@ -7,7 +7,10 @@ const prisma = require("../src/lib/prisma");
 const { requireAuth } = require("../src/middleware/auth.middleware");
 const validate = require("../src/middleware/validate.middleware");
 const { buildDiscoveryFilterWhere } = require("../src/services/discovery.service");
-const { registerSchema } = require("../src/types/auth.schema");
+const {
+  registerSchema,
+  verifyEmailSchema,
+} = require("../src/types/auth.schema");
 const { discoverySchema } = require("../src/types/discovery.schema");
 
 after(async () => {
@@ -50,6 +53,21 @@ test("validate rejects invalid registration input before controller logic", asyn
 
   assert.ok(error instanceof ZodError);
   assert.ok(error.issues.length > 0);
+});
+
+test("email verification validation accepts GET requests without a body", async () => {
+  const req = {
+    body: undefined,
+    params: {},
+    query: {
+      token: " verification-token ",
+    },
+  };
+  const error = await getNextError(validate(verifyEmailSchema), req);
+
+  assert.equal(error, null);
+  assert.deepEqual(req.body, {});
+  assert.equal(req.query.token, "verification-token");
 });
 
 test("discovery filters normalize valid query params", async () => {

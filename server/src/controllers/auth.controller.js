@@ -52,9 +52,37 @@ async function updateMe(req, res, next) {
   }
 }
 
+async function resendVerification(req, res, next) {
+  try {
+    const result = await authService.resendVerificationEmail(req.user.userId);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
+async function verifyEmail(req, res, next) {
+  try {
+    const result = await authService.verifyEmail(req.query.token);
+
+    return res.status(200).json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    return next(error);
+  }
+}
+
 module.exports = {
   me,
+  resendVerification,
   updateMe,
+  verifyEmail,
   register,
   login,
 };

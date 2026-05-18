@@ -1,21 +1,50 @@
 const { Prisma } = require("@prisma/client");
 const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const prisma = require("../lib/prisma");
 const { signToken } = require("../lib/jwt");
 const { createHttpError } = require("../lib/helpers");
+const { sendVerificationEmail } = require("./mail.service");
 
 const SALT_ROUNDS = 10;
+const VERIFICATION_TOKEN_BYTES = 32;
+const DEFAULT_VERIFICATION_EXPIRES_IN_HOURS = 24;
 
 function sanitizeUser(user) {
   return {
     id: user.id,
     email: user.email,
+    isVerified: user.isVerified,
+    verifiedAt: user.verifiedAt,
     fullName: user.fullName,
     phoneNumber: user.phoneNumber,
     bio: user.bio,
     city: user.city,
     location: user.city,
     createdAt: user.createdAt,
+  };
+}
+
+function getVerificationExpiryDate() {
+  const configuredHours = Number(process.env.EMAIL_VERIFICATION_EXPIRES_IN_HOURS);
+  const hours = Number.isFinite(configuredHours) && configuredHours > 0
+    ? configuredHours
+    : DEFAULT_VERIFICATION_EXPIRES_IN_HOURS;
+
+  return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+function hashVerificationToken(token) {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+function createEmailVerificationTokenData() {
+  const token = crypto.randomBytes(VERIFICATION_TOKEN_BYTES).toString("hex");
+
+  return {
+    token,
+    tokenHash: hashVerificationToken(token),
+    expiresAt: getVerificationExpiryDate(),
   };
 }
 
@@ -74,6 +103,7 @@ async function registerUser({
   }
 
   const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  const verificationToken = createEmailVerificationTokenData();
 
   let user;
 
@@ -84,6 +114,8 @@ async function registerUser({
         fullName: normalizedFullName,
         bio,
         city: city !== undefined ? city : location,
+        emailVerificationExpiresAt: verificationToken.expiresAt,
+        emailVerificationTokenHash: verificationToken.tokenHash,
         password: hashedPassword,
         phoneNumber: normalizedPhoneNumber,
       },
@@ -97,6 +129,12 @@ async function registerUser({
   }
 
   const token = signToken({ userId: user.id, email: user.email });
+
+  await sendVerificationEmail({
+    email: user.email,
+    fullName: user.fullName,
+    token: verificationToken.token,
+  });
 
   return {
     token,
@@ -139,6 +177,89 @@ async function getCurrentUser(userId) {
   }
 
   return sanitizeUser(user);
+}
+
+async function resendVerificationEmail(userId) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+  });
+
+  if (!user) {
+    throw createHttpError(401, "Invalid or expired token");
+  }
+
+  if (user.isVerified) {
+    return {
+      alreadyVerified: true,
+      sent: false,
+      user: sanitizeUser(user),
+    };
+  }
+
+  const verificationToken = createEmailVerificationTokenData();
+  const updatedUser = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      emailVerificationExpiresAt: verificationToken.expiresAt,
+      emailVerificationTokenHash: verificationToken.tokenHash,
+    },
+  });
+
+  await sendVerificationEmail({
+    email: updatedUser.email,
+    fullName: updatedUser.fullName,
+    token: verificationToken.token,
+  });
+
+  return {
+    alreadyVerified: false,
+    sent: true,
+    user: sanitizeUser(updatedUser),
+  };
+}
+
+async function verifyEmail(token) {
+  const tokenValue = token?.trim();
+
+  if (!tokenValue) {
+    throw createHttpError(400, "Verification token is required");
+  }
+
+  const tokenHash = hashVerificationToken(tokenValue);
+  const user = await prisma.user.findUnique({
+    where: { emailVerificationTokenHash: tokenHash },
+  });
+
+  if (!user || user.isVerified || !user.emailVerificationExpiresAt) {
+    throw createHttpError(400, "Invalid or expired verification token");
+  }
+
+  if (user.emailVerificationExpiresAt.getTime() < Date.now()) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        emailVerificationExpiresAt: null,
+        emailVerificationTokenHash: null,
+      },
+    });
+
+    throw createHttpError(400, "Invalid or expired verification token");
+  }
+
+  const verifiedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      emailVerificationExpiresAt: null,
+      emailVerificationTokenHash: null,
+      isVerified: true,
+      verifiedAt: new Date(),
+    },
+  });
+
+  return {
+    verified: true,
+    user: sanitizeUser(verifiedUser),
+  };
 }
 
 async function updateCurrentUser(userId, profileFields) {
@@ -192,5 +313,7 @@ module.exports = {
   getCurrentUser,
   registerUser,
   loginUser,
+  resendVerificationEmail,
   updateCurrentUser,
+  verifyEmail,
 };

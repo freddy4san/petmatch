@@ -45,6 +45,14 @@ const loginSchema = z.object({
   query: z.object({}),
 });
 
+const verifyEmailSchema = z.object({
+  body: z.object({}).optional().default({}),
+  params: z.object({}),
+  query: z.object({
+    token: z.string().trim().min(1, "Verification token is required"),
+  }),
+});
+
 const updateCurrentUserSchema = z.object({
   body: z
     .object({
@@ -66,4 +74,5 @@ module.exports = {
   registerSchema,
   loginSchema,
   updateCurrentUserSchema,
+  verifyEmailSchema,
 };

@@ -32,7 +32,7 @@ export function renderPrototypeScreen(app) {
     case 'privacy':
       return <PrivacyPage app={app} />;
     case 'verification':
-      return <VerificationPage />;
+      return <VerificationPage app={app} />;
     case 'notifications':
       return <NotificationsPage app={app} />;
     case 'settings':

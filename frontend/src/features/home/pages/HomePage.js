@@ -1,5 +1,7 @@
 import { Bell, Settings } from 'lucide-react';
 
+import { VerifiedBadge } from '../../auth/components/EmailVerification';
+
 export default function HomePage({ app }) {
   const {
     authSession,
@@ -17,7 +19,10 @@ export default function HomePage({ app }) {
         <div className="flex justify-between items-start mb-6">
           <div>
             <p className="text-sm opacity-90">Good Morning</p>
-            <h1 className="text-2xl font-bold">{displayName}</h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-bold">{displayName}</h1>
+              <VerifiedBadge isVerified={authSession?.user?.isVerified} className="bg-white/20 text-white ring-1 ring-white/30" />
+            </div>
           </div>
           <div className="flex gap-3">
             <button onClick={() => setCurrentScreen('notifications')} className="w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30 transition-all relative">

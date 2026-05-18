@@ -16,8 +16,32 @@
 
 - Auth required.
 - Returns the authenticated user without password data.
+- User responses include `isVerified` and `verifiedAt`.
 - Returns `401` when the token is missing, invalid, expired, or points to a
   deleted user.
+
+### Verify Email
+
+`GET /api/auth/verify-email?token=verification_token`
+
+- Auth not required.
+- Verifies the account when the token is valid and not expired.
+- Tokens are stored hashed server-side and are cleared after successful
+  verification.
+- Returns the verified user without password data.
+- Returns `400` when the token is missing, invalid, expired, or already used.
+
+### Resend Verification Email
+
+`POST /api/auth/resend-verification`
+
+- Auth required.
+- Generates a new verification token for unverified users and sends or prepares
+  the verification email.
+- Returns `{ "sent": true, "alreadyVerified": false, "user": ... }` for
+  unverified users.
+- Returns `{ "sent": false, "alreadyVerified": true, "user": ... }` when the
+  account is already verified.
 
 ### Update Current User
 

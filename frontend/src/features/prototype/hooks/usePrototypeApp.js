@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { getCurrentUser, updateCurrentUser } from '../../auth/api';
+import {
+  getCurrentUser,
+  resendVerificationEmail as resendVerificationEmailRequest,
+  updateCurrentUser,
+  verifyEmail
+} from '../../auth/api';
 import {
   clearStoredAuthSession,
   hasStoredAuthSession,
@@ -56,11 +61,13 @@ const PET_TYPE_EMOJI_MAP = {
   Raccoon: '🦝',
   Reptile: '🦎'
 };
-const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup']);
+const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup', 'verification']);
 
 export function usePrototypeApp() {
   const [authSession, setAuthSession] = useState(() => readStoredAuthSession());
-  const [currentScreen, setCurrentScreen] = useState(() => (authSession?.token ? 'home' : 'welcome'));
+  const [currentScreen, setCurrentScreen] = useState(() => (
+    getEmailVerificationTokenFromUrl() ? 'verification' : (authSession?.token ? 'home' : 'welcome')
+  ));
   const [matches, setMatches] = useState([]);
   const [likedPets, setLikedPets] = useState([]);
   const [discoveryPets, setDiscoveryPets] = useState([]);
@@ -98,6 +105,12 @@ export function usePrototypeApp() {
   const [isLoadingOlderMessages, setIsLoadingOlderMessages] = useState(false);
   const [messagesError, setMessagesError] = useState('');
   const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isResendingVerification, setIsResendingVerification] = useState(false);
+  const [isVerifyingEmail, setIsVerifyingEmail] = useState(false);
+  const [resendVerificationError, setResendVerificationError] = useState('');
+  const [resendVerificationMessage, setResendVerificationMessage] = useState('');
+  const [emailVerificationError, setEmailVerificationError] = useState('');
+  const [emailVerificationResult, setEmailVerificationResult] = useState(null);
   const [matchesFilter, setMatchesFilter] = useState('all');
   const activeChatIdRef = useRef(null);
   const activeConversationIdRef = useRef(null);
@@ -696,6 +709,70 @@ export function usePrototypeApp() {
     storeAuthSession(session);
   };
 
+  const resendVerificationEmail = async () => {
+    if (!authSession?.token) {
+      setResendVerificationError('Please sign in to resend your verification email.');
+      setResendVerificationMessage('');
+      return false;
+    }
+
+    setIsResendingVerification(true);
+    setResendVerificationError('');
+    setResendVerificationMessage('');
+
+    try {
+      const result = await resendVerificationEmailRequest(authSession.token);
+
+      if (result?.user) {
+        updateStoredUser(result.user);
+      }
+
+      setResendVerificationMessage(
+        result?.alreadyVerified
+          ? 'Your email is already verified.'
+          : 'Verification email sent. Check your inbox for the link.'
+      );
+      return true;
+    } catch (error) {
+      setResendVerificationError(error.message);
+      return false;
+    } finally {
+      setIsResendingVerification(false);
+    }
+  };
+
+  const verifyEmailToken = async (token) => {
+    const verificationToken = token?.trim();
+
+    if (!verificationToken) {
+      setEmailVerificationError('Verification token is missing.');
+      setEmailVerificationResult(null);
+      return null;
+    }
+
+    setIsVerifyingEmail(true);
+    setEmailVerificationError('');
+    setEmailVerificationResult(null);
+
+    try {
+      const result = await verifyEmail(verificationToken);
+
+      if (result?.user) {
+        updateStoredUser(result.user);
+      }
+
+      setEmailVerificationResult(result);
+      clearEmailVerificationTokenFromUrl();
+      return result;
+    } catch (error) {
+      setEmailVerificationError(error.message);
+      setEmailVerificationResult(null);
+      return null;
+    } finally {
+      setIsVerifyingEmail(false);
+    }
+  };
+
   const selectActiveUserPet = (petId) => {
     setActiveUserPetId(petId);
     setDiscoveryPets([]);
@@ -1047,6 +1124,8 @@ export function usePrototypeApp() {
     isSavingProfileLocation,
     isSavingPet,
     isSendingMessage,
+    isResendingVerification,
+    isVerifyingEmail,
     discoveryError,
     discoveryFilterDraft,
     discoveryFilters,
@@ -1059,6 +1138,8 @@ export function usePrototypeApp() {
     matchesFilter,
     matchesError,
     messagesError,
+    emailVerificationError,
+    emailVerificationResult,
     maxDistance,
     newMessage,
     notificationsEnabled,
@@ -1069,6 +1150,9 @@ export function usePrototypeApp() {
     petsError,
     profileDetailsError,
     profileLocationError,
+    resendVerificationEmail,
+    resendVerificationError,
+    resendVerificationMessage,
     refreshMatches: loadMatches,
     refreshMessages,
     removePet,
@@ -1095,8 +1179,32 @@ export function usePrototypeApp() {
     updateEditingPet,
     dismissMatchCelebration,
     viewCelebratedMatch,
-    userPets
+    userPets,
+    verifyEmailToken
   };
+}
+
+function getEmailVerificationTokenFromUrl() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return new URLSearchParams(window.location.search).get('token') || '';
+}
+
+function clearEmailVerificationTokenFromUrl() {
+  if (typeof window === 'undefined' || typeof window.history?.replaceState !== 'function') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+
+  if (!url.searchParams.has('token')) {
+    return;
+  }
+
+  url.searchParams.delete('token');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }
 
 function isProtectedScreen(screen) {

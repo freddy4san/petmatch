@@ -27,3 +27,16 @@ export function updateCurrentUser(token, data) {
     body: JSON.stringify(data)
   });
 }
+
+export function resendVerificationEmail(token) {
+  return apiFetch('/auth/resend-verification', {
+    method: 'POST',
+    headers: getAuthHeaders(token)
+  });
+}
+
+export function verifyEmail(token) {
+  const params = new URLSearchParams({ token });
+
+  return apiFetch(`/auth/verify-email?${params.toString()}`);
+}

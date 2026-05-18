@@ -6,16 +6,27 @@ const {
   registerSchema,
   loginSchema,
   updateCurrentUserSchema,
+  verifyEmailSchema,
 } = require("../types/auth.schema");
 
 const router = express.Router();
 
 router.get("/me", requireAuth, authController.me);
+router.get(
+  "/verify-email",
+  validate(verifyEmailSchema),
+  authController.verifyEmail
+);
 router.patch(
   "/me",
   requireAuth,
   validate(updateCurrentUserSchema),
   authController.updateMe
+);
+router.post(
+  "/resend-verification",
+  requireAuth,
+  authController.resendVerification
 );
 router.post("/register", validate(registerSchema), authController.register);
 router.post("/login", validate(loginSchema), authController.login);

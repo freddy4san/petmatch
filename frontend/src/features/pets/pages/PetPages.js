@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { ArrowLeft, ImagePlus, Trash2 } from 'lucide-react';
 
+import { VerifiedBadge } from '../../auth/components/EmailVerification';
+
 const PET_TYPE_OPTIONS = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Reptile', 'Raccoon', 'Other'];
 const BREED_OPTIONS_BY_TYPE = {
   Bird: [
@@ -241,7 +243,10 @@ export function ProfilePage({ app }) {
             <img src="https://picsum.photos/150/150" alt={displayName} className="w-16 h-16 bg-white rounded-full overflow-hidden border-2 border-white object-cover" />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-bold">{displayName}</h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <h2 className="text-xl font-bold">{displayName}</h2>
+              <VerifiedBadge isVerified={authSession?.user?.isVerified} className="bg-white/20 text-white ring-1 ring-white/30" />
+            </div>
             <p className="text-sm opacity-90">{profileLocation}</p>
             <div className="flex gap-6 mt-2">
               <div><span className="font-bold text-lg">{matches.length}</span> <span className="text-xs opacity-90">Matches</span></div>
