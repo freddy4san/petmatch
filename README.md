@@ -1,6 +1,6 @@
 # PetMatch
 
-PetMatch is a full-stack pet discovery and matching application. Users can create authenticated accounts, manage pet profiles, upload pet images, browse a discovery feed, like or pass on other pets, automatically match on reciprocal likes, and message matched owners through REST-based conversations.
+PetMatch is a full-stack pet discovery and matching application. Users can create authenticated accounts, manage owner and pet profiles, upload pet images, browse a filtered discovery feed, like or pass on other pets, automatically match on reciprocal likes, and message matched owners through REST endpoints with Socket.IO realtime updates.
 
 The project is built as a production-style portfolio application with a React frontend, an Express API, a Prisma/PostgreSQL data layer, Cloudinary-backed media handling, and deployment paths for Vercel, Render, Neon, and Cloudinary.
 
@@ -18,11 +18,11 @@ The frontend is a React application organized by feature area. API requests go t
 
 Key areas:
 
-- `features/auth` - signup, login, session handling, and current user flow
+- `features/auth` - signup, login, session handling, current user loading, and profile updates
 - `features/pets` - pet CRUD, image validation, and image upload integration
-- `features/discovery` - discovery feed API integration and browsing UI
+- `features/discovery` - discovery feed API integration, selected pet browsing, and filters
 - `features/interactions` - like/pass actions
-- `features/matches` - matches, conversations, and REST chat UI
+- `features/matches` - matches, conversations, paginated chat, unread counts, and realtime updates
 - `shared/lib/apiClient.js` - shared fetch wrapper and API base URL handling
 
 ### Backend
@@ -38,6 +38,7 @@ Backend responsibilities include:
 - Cloudinary upload/delete coordination
 - match creation from reciprocal likes
 - conversation and message persistence
+- conversation read state and realtime message broadcasting with Socket.IO
 
 ### Database
 
@@ -49,6 +50,7 @@ PostgreSQL stores relational application data through Prisma. The core models ar
 - `Match`
 - `Conversation`
 - `Message`
+- `ConversationReadState`
 
 Interactions represent a source pet responding to a target pet with `LIKE` or `PASS`. A reciprocal `LIKE` creates a canonical match between the two pets, and the backend ensures a conversation exists for that match.
 
@@ -61,14 +63,17 @@ The backend owns image upload, replacement, and deletion so it can enforce pet o
 ## Implemented Features
 
 - User signup, login, JWT session storage, and current user loading
+- Owner profile updates for name, phone, bio, and city
 - Authenticated pet CRUD
 - Pet image upload, replacement, and deletion through Cloudinary
-- Discovery feed with pagination support and selected source pet filtering
+- Discovery feed with pagination, selected source pet filtering, and filters for type, breed, age, size, and photos
 - Like/pass interactions between pets
 - Duplicate interaction handling and conflict responses
 - Automatic match creation on reciprocal likes
 - Conversation creation for matched pets
-- REST-based message listing and sending
+- Conversation read states, unread counts, and new match indicators
+- Paginated REST message listing and sending
+- Socket.IO realtime chat updates and inbox refresh events
 - Health checks for API and database connectivity
 - Frontend API integration through a shared client
 - Backend and frontend test coverage for key flows
@@ -82,6 +87,7 @@ The backend owns image upload, replacement, and deletion so it can enforce pet o
 - Tailwind CSS
 - Lucide React icons
 - REST API integration
+- Socket.IO client
 
 ### Backend
 
@@ -94,6 +100,7 @@ The backend owns image upload, replacement, and deletion so it can enforce pet o
 - bcrypt
 - Multer
 - Cloudinary
+- Socket.IO
 
 ### Infrastructure
 
@@ -297,6 +304,7 @@ All backend routes are served under `/api`.
 | Auth | `POST /api/auth/register` | Create a user account |
 | Auth | `POST /api/auth/login` | Login and receive a JWT |
 | Auth | `GET /api/auth/me` | Load the authenticated user |
+| Auth | `PATCH /api/auth/me` | Update the authenticated user's profile |
 | Pets | `GET /api/pets` | List the current user's pets |
 | Pets | `POST /api/pets` | Create a pet |
 | Pets | `PATCH /api/pets/:petId` | Update an owned pet |
@@ -307,6 +315,7 @@ All backend routes are served under `/api`.
 | Interactions | `POST /api/interactions` | Like or pass on a pet |
 | Matches | `GET /api/matches` | List matches for the current user's pets |
 | Conversations | `GET /api/conversations` | List matched conversations |
+| Conversations | `POST /api/conversations/:conversationId/read` | Mark a conversation or new match as read |
 | Messages | `GET /api/matches/:matchId/messages` | List messages for a match |
 | Messages | `POST /api/matches/:matchId/messages` | Send a message in a match |
 
@@ -322,12 +331,12 @@ Pet image uploads use `multipart/form-data` with the file field:
 image
 ```
 
+Realtime chat is available on the backend origin with Socket.IO. Authenticated clients can join conversation rooms, send `message:send`, receive `message:new`, and receive inbox-level `conversation:updated` events. The REST message endpoints remain supported as a fallback and also emit realtime updates to connected clients.
+
 More detailed frontend/backend contract notes are available in `server/docs/frontend-contract.md`.
 
 ## Future Improvements
 
-- Add real-time messaging with WebSockets or Server-Sent Events
-- Add read receipts and persisted unread conversation counts
 - Add location-based discovery and distance filters
 - Expand pet images into a dedicated gallery model for multiple images per pet
 - Add notifications for new matches and messages
