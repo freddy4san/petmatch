@@ -10,6 +10,20 @@
 
 ## Auth
 
+`POST /api/auth/register` and `POST /api/auth/login`
+
+- Auth not required.
+- Rate limited per client IP to 10 combined attempts every 15 minutes by
+  default.
+- Returns `429` with the standard error response when the limit is exceeded:
+
+```json
+{
+  "success": false,
+  "error": "Too many authentication attempts. Please try again later."
+}
+```
+
 ### Current User
 
 `GET /api/auth/me`

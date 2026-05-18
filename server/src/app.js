@@ -2,6 +2,7 @@ require("dotenv").config();
 
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const apiRoutes = require("./routes");
 const prisma = require("./lib/prisma");
 const { createHttpError } = require("./lib/helpers");
@@ -11,6 +12,8 @@ const {
 } = require("./middleware/error.middleware");
 
 const app = express();
+
+app.set("trust proxy", 1);
 
 const allowedOrigins = new Set([
   "http://localhost:3000",
@@ -22,6 +25,7 @@ const allowedOrigins = new Set([
     .filter(Boolean),
 ]);
 
+app.use(helmet());
 app.use(
   cors({
     origin(origin, callback) {

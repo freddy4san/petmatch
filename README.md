@@ -325,6 +325,19 @@ Authenticated routes require:
 Authorization: Bearer <token>
 ```
 
+### Auth Rate Limiting
+
+`POST /api/auth/register` and `POST /api/auth/login` are rate limited per client IP to slow brute-force attempts. By default, each IP can make 10 combined authentication attempts every 15 minutes. When the limit is exceeded, the API returns the existing error response shape with HTTP `429`:
+
+```json
+{
+  "success": false,
+  "error": "Too many authentication attempts. Please try again later."
+}
+```
+
+The defaults can be adjusted with `AUTH_RATE_LIMIT_MAX` and `AUTH_RATE_LIMIT_WINDOW_MS`.
+
 Pet image uploads use `multipart/form-data` with the file field:
 
 ```text
