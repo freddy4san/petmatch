@@ -1,7 +1,7 @@
 import { AboutPage, HelpPage, LanguagePage, NotificationSettingsPage, NotificationsPage, PreferencesPage, PremiumPage, PrivacyPage, SettingsPage, ThemePage, VerificationPage } from '../features/settings/pages/SettingsPages';
 import { ChatPage, MatchesPage } from '../features/matches/pages/MatchesPages';
 import { EditPetPage, PetSetupPage, ProfilePage } from '../features/pets/pages/PetPages';
-import { LoginPage, SignupPage, WelcomePage } from '../features/auth/pages/AuthPages';
+import { ForgotPasswordPage, LoginPage, ResetPasswordPage, SignupPage, WelcomePage } from '../features/auth/pages/AuthPages';
 import DiscoveryPage from '../features/discovery/pages/DiscoveryPage';
 import HomePage from '../features/home/pages/HomePage';
 
@@ -13,6 +13,10 @@ export function renderPrototypeScreen(app) {
       return <LoginPage app={app} onNavigate={app.setCurrentScreen} />;
     case 'signup':
       return <SignupPage app={app} onNavigate={app.setCurrentScreen} />;
+    case 'forgotPassword':
+      return <ForgotPasswordPage onNavigate={app.setCurrentScreen} />;
+    case 'resetPassword':
+      return <ResetPasswordPage onNavigate={app.setCurrentScreen} />;
     case 'petSetup':
       return <PetSetupPage app={app} onNavigate={app.setCurrentScreen} />;
     case 'home':

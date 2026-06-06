@@ -11,10 +11,25 @@ function getApiBaseUrl() {
   ).replace(/\/$/, "");
 }
 
+function getFrontendBaseUrl() {
+  return (
+    process.env.PUBLIC_FRONTEND_BASE_URL ||
+    process.env.FRONTEND_URL ||
+    process.env.CLIENT_URL ||
+    "http://localhost:3000"
+  ).replace(/\/$/, "");
+}
+
 function buildVerificationUrl(token) {
   const params = new URLSearchParams({ token });
 
   return `${getApiBaseUrl()}/auth/verify-email?${params.toString()}`;
+}
+
+function buildPasswordResetUrl(token) {
+  const params = new URLSearchParams({ token });
+
+  return `${getFrontendBaseUrl()}/reset-password?${params.toString()}`;
 }
 
 async function sendVerificationEmail({ email, fullName, token }) {
@@ -47,7 +62,38 @@ async function sendVerificationEmail({ email, fullName, token }) {
   throw new Error(`Unsupported mail provider: ${provider}`);
 }
 
+async function sendPasswordResetEmail({ email, fullName, token }) {
+  const resetUrl = buildPasswordResetUrl(token);
+  const provider = getMailProvider();
+
+  if (provider === "console") {
+    if (process.env.NODE_ENV === "production") {
+      console.warn(
+        "MAIL_PROVIDER is set to console; password reset email was not sent."
+      );
+    } else {
+      console.info(
+        [
+          "PetMatch password reset:",
+          `To: ${email}`,
+          `Name: ${fullName || "PetMatch user"}`,
+          `Reset: ${resetUrl}`,
+        ].join("\n")
+      );
+    }
+
+    return {
+      provider,
+      resetUrl: process.env.NODE_ENV === "production" ? undefined : resetUrl,
+    };
+  }
+
+  throw new Error(`Unsupported mail provider: ${provider}`);
+}
+
 module.exports = {
+  buildPasswordResetUrl,
   buildVerificationUrl,
+  sendPasswordResetEmail,
   sendVerificationEmail,
 };

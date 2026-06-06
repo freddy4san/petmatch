@@ -14,6 +14,20 @@ export function loginUser(data) {
   });
 }
 
+export function requestPasswordReset(data) {
+  return apiFetch('/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
+export function resetPassword(data) {
+  return apiFetch('/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  });
+}
+
 export function getCurrentUser(token) {
   return apiFetch('/auth/me', {
     headers: getAuthHeaders(token)

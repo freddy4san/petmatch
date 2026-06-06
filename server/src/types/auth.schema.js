@@ -45,6 +45,23 @@ const loginSchema = z.object({
   query: z.object({}),
 });
 
+const forgotPasswordSchema = z.object({
+  body: z.object({
+    email: emailSchema,
+  }),
+  params: z.object({}),
+  query: z.object({}),
+});
+
+const resetPasswordSchema = z.object({
+  body: z.object({
+    token: z.string().trim().min(1, "Password reset token is required"),
+    password: passwordSchema,
+  }),
+  params: z.object({}),
+  query: z.object({}),
+});
+
 const verifyEmailSchema = z.object({
   body: z.object({}).optional().default({}),
   params: z.object({}),
@@ -71,8 +88,10 @@ const updateCurrentUserSchema = z.object({
 });
 
 module.exports = {
+  forgotPasswordSchema,
   registerSchema,
   loginSchema,
+  resetPasswordSchema,
   updateCurrentUserSchema,
   verifyEmailSchema,
 };

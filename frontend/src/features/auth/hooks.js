@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { loginUser, registerUser } from './api';
+import { loginUser, registerUser, requestPasswordReset, resetPassword } from './api';
 
 const INITIAL_FORM_STATE = {
   confirmPassword: '',
@@ -87,6 +87,105 @@ export function useAuthForm({ mode, onAuthSuccess, onNavigate }) {
   };
 }
 
+export function useForgotPasswordForm() {
+  const [email, setEmail] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!email.trim()) {
+      setErrorMessage('Email address is required.');
+      setSuccessMessage('');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      const result = await requestPasswordReset({ email });
+      setSuccessMessage(result?.message || 'If an account exists for that email, a password reset link has been sent.');
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return {
+    email,
+    errorMessage,
+    handleSubmit,
+    isSubmitting,
+    setEmail,
+    successMessage
+  };
+}
+
+export function useResetPasswordForm({ onNavigate, token }) {
+  const [formData, setFormData] = useState({
+    confirmPassword: '',
+    password: ''
+  });
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    const validationError = getPasswordValidationMessages(formData.password, formData.confirmPassword).join(' ');
+
+    if (validationError) {
+      setErrorMessage(validationError);
+      setSuccessMessage('');
+      return;
+    }
+
+    if (!token) {
+      setErrorMessage('Password reset link is missing or invalid.');
+      setSuccessMessage('');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+
+    try {
+      await resetPassword({
+        token,
+        password: formData.password
+      });
+      setSuccessMessage('Password reset successful. Redirecting to sign in...');
+      clearPasswordResetTokenFromUrl();
+      window.setTimeout(() => onNavigate('login'), 900);
+    } catch (error) {
+      setErrorMessage(error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return {
+    errorMessage,
+    formData,
+    handleChange,
+    handleSubmit,
+    isSubmitting,
+    successMessage
+  };
+}
+
 function validateSignupForm(formData) {
   const messages = [];
 
@@ -123,4 +222,19 @@ function getPasswordValidationMessages(password, confirmPassword) {
   }
 
   return messages;
+}
+
+function clearPasswordResetTokenFromUrl() {
+  if (typeof window === 'undefined' || typeof window.history?.replaceState !== 'function') {
+    return;
+  }
+
+  const url = new URL(window.location.href);
+
+  if (!url.searchParams.has('token')) {
+    return;
+  }
+
+  url.searchParams.delete('token');
+  window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
 }

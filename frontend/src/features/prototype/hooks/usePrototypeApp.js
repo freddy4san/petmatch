@@ -61,12 +61,12 @@ const PET_TYPE_EMOJI_MAP = {
   Raccoon: '🦝',
   Reptile: '🦎'
 };
-const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup', 'verification']);
+const PUBLIC_SCREENS = new Set(['welcome', 'login', 'signup', 'forgotPassword', 'resetPassword', 'verification']);
 
 export function usePrototypeApp() {
   const [authSession, setAuthSession] = useState(() => readStoredAuthSession());
   const [currentScreen, setCurrentScreen] = useState(() => (
-    getEmailVerificationTokenFromUrl() ? 'verification' : (authSession?.token ? 'home' : 'welcome')
+    getInitialPublicScreenFromUrl() || (authSession?.token ? 'home' : 'welcome')
   ));
   const [matches, setMatches] = useState([]);
   const [likedPets, setLikedPets] = useState([]);
@@ -1210,12 +1210,22 @@ export function usePrototypeApp() {
   };
 }
 
-function getEmailVerificationTokenFromUrl() {
+function getInitialPublicScreenFromUrl() {
   if (typeof window === 'undefined') {
     return '';
   }
 
-  return new URLSearchParams(window.location.search).get('token') || '';
+  const hasToken = Boolean(new URLSearchParams(window.location.search).get('token'));
+
+  if (!hasToken) {
+    return '';
+  }
+
+  if (window.location.pathname.includes('reset-password')) {
+    return 'resetPassword';
+  }
+
+  return 'verification';
 }
 
 function clearEmailVerificationTokenFromUrl() {

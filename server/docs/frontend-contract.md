@@ -57,6 +57,68 @@
 - Returns `{ "sent": false, "alreadyVerified": true, "user": ... }` when the
   account is already verified.
 
+### Forgot Password
+
+`POST /api/auth/forgot-password`
+
+- Auth not required.
+- Rate limited with the same auth limiter as login and register.
+- Accepts:
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+- Always returns `200` with the same response shape, whether or not an account
+  exists for that email.
+- When the email belongs to an account, the backend generates a cryptographically
+  secure reset token, stores only its SHA-256 hash, sets an expiration time, and
+  sends or prepares a reset email.
+
+```json
+{
+  "success": true,
+  "data": {
+    "sent": true,
+    "message": "If an account exists for that email, a password reset link has been sent."
+  }
+}
+```
+
+### Reset Password
+
+`POST /api/auth/reset-password`
+
+- Auth not required.
+- Rate limited with the same auth limiter as login and register.
+- Accepts the raw token from the reset URL and the new password:
+
+```json
+{
+  "token": "password_reset_token",
+  "password": "new-password"
+}
+```
+
+- The password must be at least 8 characters.
+- The backend hashes the supplied token before lookup, rejects missing, invalid,
+  expired, or already-used tokens, hashes the new password with bcrypt, and clears
+  the stored reset token fields after a successful reset.
+- Returns:
+
+```json
+{
+  "success": true,
+  "data": {
+    "reset": true
+  }
+}
+```
+
+- Returns `400` when the token is missing, invalid, expired, or already used.
+
 ### Update Current User
 
 `PATCH /api/auth/me`

@@ -6,8 +6,10 @@ const {
 const { requireAuth } = require("../middleware/auth.middleware");
 const validate = require("../middleware/validate.middleware");
 const {
+  forgotPasswordSchema,
   registerSchema,
   loginSchema,
+  resetPasswordSchema,
   updateCurrentUserSchema,
   verifyEmailSchema,
 } = require("../types/auth.schema");
@@ -31,6 +33,18 @@ router.post(
   "/resend-verification",
   requireAuth,
   authController.resendVerification
+);
+router.post(
+  "/forgot-password",
+  authRateLimiter,
+  validate(forgotPasswordSchema),
+  authController.forgotPassword
+);
+router.post(
+  "/reset-password",
+  authRateLimiter,
+  validate(resetPasswordSchema),
+  authController.resetPassword
 );
 router.post(
   "/register",

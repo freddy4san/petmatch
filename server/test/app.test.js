@@ -1,5 +1,7 @@
 const assert = require("node:assert/strict");
-const { after, test } = require("node:test");
+const { after, mock, test } = require("node:test");
+const bcrypt = require("bcrypt");
+const crypto = require("crypto");
 const http = require("node:http");
 const express = require("express");
 const { ZodError } = require("zod");
@@ -19,9 +21,13 @@ const {
 const { requireAuth } = require("../src/middleware/auth.middleware");
 const { errorHandler } = require("../src/middleware/error.middleware");
 const validate = require("../src/middleware/validate.middleware");
+const authService = require("../src/services/auth.service");
 const { buildDiscoveryFilterWhere } = require("../src/services/discovery.service");
+const { buildPasswordResetUrl } = require("../src/services/mail.service");
 const {
+  forgotPasswordSchema,
   registerSchema,
+  resetPasswordSchema,
   verifyEmailSchema,
 } = require("../src/types/auth.schema");
 const { discoverySchema } = require("../src/types/discovery.schema");
@@ -218,6 +224,309 @@ test("email verification validation accepts GET requests without a body", async 
   assert.equal(error, null);
   assert.deepEqual(req.body, {});
   assert.equal(req.query.token, "verification-token");
+});
+
+test("forgot password validation normalizes email input", async () => {
+  const req = {
+    body: {
+      email: " USER@Example.COM ",
+    },
+    params: {},
+    query: {},
+  };
+  const error = await getNextError(validate(forgotPasswordSchema), req);
+
+  assert.equal(error, null);
+  assert.deepEqual(req.body, {
+    email: "user@example.com",
+  });
+});
+
+test("reset password validation trims token and enforces password policy", async () => {
+  const req = {
+    body: {
+      token: " reset-token ",
+      password: "new-password",
+    },
+    params: {},
+    query: {},
+  };
+  const error = await getNextError(validate(resetPasswordSchema), req);
+
+  assert.equal(error, null);
+  assert.equal(req.body.token, "reset-token");
+
+  await assert.rejects(
+    resetPasswordSchema.parseAsync({
+      body: {
+        token: "reset-token",
+        password: "short",
+      },
+      params: {},
+      query: {},
+    }),
+    ZodError
+  );
+});
+
+test("password reset URLs target the frontend reset page", () => {
+  const previousFrontendUrl = process.env.PUBLIC_FRONTEND_BASE_URL;
+
+  process.env.PUBLIC_FRONTEND_BASE_URL = "https://petmatch.example";
+
+  try {
+    assert.equal(
+      buildPasswordResetUrl("reset token"),
+      "https://petmatch.example/reset-password?token=reset+token"
+    );
+  } finally {
+    if (previousFrontendUrl === undefined) {
+      delete process.env.PUBLIC_FRONTEND_BASE_URL;
+    } else {
+      process.env.PUBLIC_FRONTEND_BASE_URL = previousFrontendUrl;
+    }
+  }
+});
+
+test("requestPasswordReset stores only a hashed token and returns a generic response", async () => {
+  const previousMailProvider = process.env.MAIL_PROVIDER;
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousFrontendUrl = process.env.PUBLIC_FRONTEND_BASE_URL;
+  const originalFindUnique = prisma.user.findUnique;
+  const originalUpdate = prisma.user.update;
+  const updates = [];
+  const logs = [];
+  prisma.user.findUnique = async (args) => {
+    assert.deepEqual(args, {
+      where: {
+        email: "user@example.com",
+      },
+    });
+
+    return {
+      id: "user-1",
+      email: "user@example.com",
+      fullName: "Test User",
+    };
+  };
+  prisma.user.update = async (args) => {
+    updates.push(args);
+
+    return {
+      id: "user-1",
+      email: "user@example.com",
+      fullName: "Test User",
+    };
+  };
+  const consoleInfoMock = mock.method(console, "info", (message) => {
+    logs.push(message);
+  });
+
+  process.env.MAIL_PROVIDER = "console";
+  process.env.NODE_ENV = "development";
+  process.env.PUBLIC_FRONTEND_BASE_URL = "https://petmatch.example";
+
+  try {
+    const result = await authService.requestPasswordReset(" USER@Example.COM ");
+
+    assert.deepEqual(result, {
+      message:
+        "If an account exists for that email, a password reset link has been sent.",
+      sent: true,
+    });
+    assert.equal(updates.length, 1);
+    assert.equal(updates[0].where.id, "user-1");
+    assert.ok(updates[0].data.passwordResetExpiresAt instanceof Date);
+    assert.ok(updates[0].data.passwordResetExpiresAt.getTime() > Date.now());
+    assert.match(updates[0].data.passwordResetTokenHash, /^[a-f0-9]{64}$/);
+    assert.equal(logs.length, 1);
+
+    const resetLine = logs[0]
+      .split("\n")
+      .find((line) => line.startsWith("Reset: "));
+    const resetUrl = new URL(resetLine.replace("Reset: ", ""));
+    const rawToken = resetUrl.searchParams.get("token");
+    const rawTokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    assert.match(rawToken, /^[a-f0-9]{64}$/);
+    assert.equal(updates[0].data.passwordResetTokenHash, rawTokenHash);
+    assert.notEqual(updates[0].data.passwordResetTokenHash, rawToken);
+  } finally {
+    prisma.user.findUnique = originalFindUnique;
+    prisma.user.update = originalUpdate;
+    consoleInfoMock.mock.restore();
+
+    if (previousMailProvider === undefined) {
+      delete process.env.MAIL_PROVIDER;
+    } else {
+      process.env.MAIL_PROVIDER = previousMailProvider;
+    }
+
+    if (previousNodeEnv === undefined) {
+      delete process.env.NODE_ENV;
+    } else {
+      process.env.NODE_ENV = previousNodeEnv;
+    }
+
+    if (previousFrontendUrl === undefined) {
+      delete process.env.PUBLIC_FRONTEND_BASE_URL;
+    } else {
+      process.env.PUBLIC_FRONTEND_BASE_URL = previousFrontendUrl;
+    }
+  }
+});
+
+test("requestPasswordReset does not reveal when an email is missing", async () => {
+  const originalFindUnique = prisma.user.findUnique;
+  const originalUpdate = prisma.user.update;
+  let updateCalls = 0;
+
+  prisma.user.findUnique = async () => null;
+  prisma.user.update = async () => {
+    updateCalls += 1;
+    throw new Error("update should not be called");
+  };
+
+  try {
+    const result = await authService.requestPasswordReset("missing@example.com");
+
+    assert.deepEqual(result, {
+      message:
+        "If an account exists for that email, a password reset link has been sent.",
+      sent: true,
+    });
+    assert.equal(updateCalls, 0);
+  } finally {
+    prisma.user.findUnique = originalFindUnique;
+    prisma.user.update = originalUpdate;
+  }
+});
+
+test("requestPasswordReset keeps generic response when reset email fails", async () => {
+  const previousMailProvider = process.env.MAIL_PROVIDER;
+  const originalFindUnique = prisma.user.findUnique;
+  const originalUpdate = prisma.user.update;
+  const consoleErrorMock = mock.method(console, "error", () => {});
+
+  process.env.MAIL_PROVIDER = "unsupported-provider";
+  prisma.user.findUnique = async () => ({
+    id: "user-1",
+    email: "user@example.com",
+    fullName: "Test User",
+  });
+  prisma.user.update = async () => ({
+    id: "user-1",
+    email: "user@example.com",
+    fullName: "Test User",
+  });
+
+  try {
+    const result = await authService.requestPasswordReset("user@example.com");
+
+    assert.deepEqual(result, {
+      message:
+        "If an account exists for that email, a password reset link has been sent.",
+      sent: true,
+    });
+    assert.equal(consoleErrorMock.mock.callCount(), 1);
+  } finally {
+    prisma.user.findUnique = originalFindUnique;
+    prisma.user.update = originalUpdate;
+    consoleErrorMock.mock.restore();
+
+    if (previousMailProvider === undefined) {
+      delete process.env.MAIL_PROVIDER;
+    } else {
+      process.env.MAIL_PROVIDER = previousMailProvider;
+    }
+  }
+});
+
+test("resetPassword hashes the new password and clears reset token fields", async () => {
+  const rawToken = "valid-reset-token";
+  const expectedTokenHash = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+  let updatedData;
+  let updateWhere;
+  const originalFindUnique = prisma.user.findUnique;
+  const originalUpdateMany = prisma.user.updateMany;
+
+  prisma.user.findUnique = async (args) => {
+    assert.deepEqual(args, {
+      where: {
+        passwordResetTokenHash: expectedTokenHash,
+      },
+    });
+
+    return {
+      id: "user-1",
+      passwordResetExpiresAt: new Date(Date.now() + 60 * 1000),
+    };
+  };
+  prisma.user.updateMany = async (args) => {
+    updateWhere = args.where;
+    updatedData = args.data;
+
+    return {
+      count: 1,
+    };
+  };
+
+  try {
+    const result = await authService.resetPassword({
+      token: rawToken,
+      password: "new-password",
+    });
+
+    assert.deepEqual(result, {
+      reset: true,
+    });
+    assert.equal(updateWhere.id, "user-1");
+    assert.equal(updateWhere.passwordResetTokenHash, expectedTokenHash);
+    assert.ok(updateWhere.passwordResetExpiresAt.gt instanceof Date);
+    assert.notEqual(updatedData.password, "new-password");
+    assert.equal(await bcrypt.compare("new-password", updatedData.password), true);
+    assert.equal(updatedData.passwordResetExpiresAt, null);
+    assert.equal(updatedData.passwordResetTokenHash, null);
+  } finally {
+    prisma.user.findUnique = originalFindUnique;
+    prisma.user.updateMany = originalUpdateMany;
+  }
+});
+
+test("resetPassword rejects when token was consumed concurrently", async () => {
+  const originalFindUnique = prisma.user.findUnique;
+  const originalUpdateMany = prisma.user.updateMany;
+
+  prisma.user.findUnique = async () => ({
+    id: "user-1",
+    passwordResetExpiresAt: new Date(Date.now() + 60 * 1000),
+  });
+  prisma.user.updateMany = async () => ({
+    count: 0,
+  });
+
+  try {
+    await assert.rejects(
+      authService.resetPassword({
+        token: "already-used-token",
+        password: "new-password",
+      }),
+      (error) => {
+        assert.equal(error.statusCode, 400);
+        assert.equal(error.message, "Invalid or expired password reset token");
+        return true;
+      }
+    );
+  } finally {
+    prisma.user.findUnique = originalFindUnique;
+    prisma.user.updateMany = originalUpdateMany;
+  }
 });
 
 test("realtime broadcasters route message and match payloads separately", () => {

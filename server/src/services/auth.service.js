@@ -4,11 +4,17 @@ const crypto = require("crypto");
 const prisma = require("../lib/prisma");
 const { signToken } = require("../lib/jwt");
 const { createHttpError } = require("../lib/helpers");
-const { sendVerificationEmail } = require("./mail.service");
+const {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} = require("./mail.service");
 
 const SALT_ROUNDS = 10;
-const VERIFICATION_TOKEN_BYTES = 32;
+const SECURE_TOKEN_BYTES = 32;
 const DEFAULT_VERIFICATION_EXPIRES_IN_HOURS = 24;
+const DEFAULT_PASSWORD_RESET_EXPIRES_IN_MINUTES = 60;
+const PASSWORD_RESET_RESPONSE_MESSAGE =
+  "If an account exists for that email, a password reset link has been sent.";
 
 function sanitizeUser(user) {
   return {
@@ -34,17 +40,37 @@ function getVerificationExpiryDate() {
   return new Date(Date.now() + hours * 60 * 60 * 1000);
 }
 
-function hashVerificationToken(token) {
+function getPasswordResetExpiryDate() {
+  const configuredMinutes = Number(process.env.PASSWORD_RESET_EXPIRES_IN_MINUTES);
+  const minutes =
+    Number.isFinite(configuredMinutes) && configuredMinutes > 0
+      ? configuredMinutes
+      : DEFAULT_PASSWORD_RESET_EXPIRES_IN_MINUTES;
+
+  return new Date(Date.now() + minutes * 60 * 1000);
+}
+
+function hashSecureToken(token) {
   return crypto.createHash("sha256").update(token).digest("hex");
 }
 
 function createEmailVerificationTokenData() {
-  const token = crypto.randomBytes(VERIFICATION_TOKEN_BYTES).toString("hex");
+  const token = crypto.randomBytes(SECURE_TOKEN_BYTES).toString("hex");
 
   return {
     token,
-    tokenHash: hashVerificationToken(token),
+    tokenHash: hashSecureToken(token),
     expiresAt: getVerificationExpiryDate(),
+  };
+}
+
+function createPasswordResetTokenData() {
+  const token = crypto.randomBytes(SECURE_TOKEN_BYTES).toString("hex");
+
+  return {
+    token,
+    tokenHash: hashSecureToken(token),
+    expiresAt: getPasswordResetExpiryDate(),
   };
 }
 
@@ -225,7 +251,7 @@ async function verifyEmail(token) {
     throw createHttpError(400, "Verification token is required");
   }
 
-  const tokenHash = hashVerificationToken(tokenValue);
+  const tokenHash = hashSecureToken(tokenValue);
   const user = await prisma.user.findUnique({
     where: { emailVerificationTokenHash: tokenHash },
   });
@@ -259,6 +285,95 @@ async function verifyEmail(token) {
   return {
     verified: true,
     user: sanitizeUser(verifiedUser),
+  };
+}
+
+async function requestPasswordReset(email) {
+  const normalizedEmail = email.trim().toLowerCase();
+  const response = {
+    message: PASSWORD_RESET_RESPONSE_MESSAGE,
+    sent: true,
+  };
+  const user = await prisma.user.findUnique({
+    where: { email: normalizedEmail },
+  });
+
+  if (!user) {
+    return response;
+  }
+
+  const resetToken = createPasswordResetTokenData();
+  const updatedUser = await prisma.user.update({
+    where: { id: user.id },
+    data: {
+      passwordResetExpiresAt: resetToken.expiresAt,
+      passwordResetTokenHash: resetToken.tokenHash,
+    },
+  });
+
+  try {
+    await sendPasswordResetEmail({
+      email: updatedUser.email,
+      fullName: updatedUser.fullName,
+      token: resetToken.token,
+    });
+  } catch (error) {
+    console.error("Password reset email failed. Check mail provider configuration.");
+  }
+
+  return response;
+}
+
+async function resetPassword({ password, token }) {
+  const tokenValue = token?.trim();
+
+  if (!tokenValue) {
+    throw createHttpError(400, "Invalid or expired password reset token");
+  }
+
+  const tokenHash = hashSecureToken(tokenValue);
+  const user = await prisma.user.findUnique({
+    where: { passwordResetTokenHash: tokenHash },
+  });
+
+  if (!user || !user.passwordResetExpiresAt) {
+    throw createHttpError(400, "Invalid or expired password reset token");
+  }
+
+  if (user.passwordResetExpiresAt.getTime() < Date.now()) {
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetExpiresAt: null,
+        passwordResetTokenHash: null,
+      },
+    });
+
+    throw createHttpError(400, "Invalid or expired password reset token");
+  }
+
+  const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
+  const consumeResult = await prisma.user.updateMany({
+    where: {
+      id: user.id,
+      passwordResetExpiresAt: {
+        gt: new Date(),
+      },
+      passwordResetTokenHash: tokenHash,
+    },
+    data: {
+      password: hashedPassword,
+      passwordResetExpiresAt: null,
+      passwordResetTokenHash: null,
+    },
+  });
+
+  if (consumeResult.count !== 1) {
+    throw createHttpError(400, "Invalid or expired password reset token");
+  }
+
+  return {
+    reset: true,
   };
 }
 
@@ -311,8 +426,10 @@ function getUserProfileData(input) {
 
 module.exports = {
   getCurrentUser,
+  requestPasswordReset,
   registerUser,
   loginUser,
+  resetPassword,
   resendVerificationEmail,
   updateCurrentUser,
   verifyEmail,

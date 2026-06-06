@@ -13,6 +13,8 @@ model User {
   isVerified                 Boolean                 @default(false)
   emailVerificationTokenHash String?                 @unique
   emailVerificationExpiresAt DateTime?
+  passwordResetTokenHash     String?                 @unique
+  passwordResetExpiresAt     DateTime?
   verifiedAt                 DateTime?
   fullName                   String?
   phoneNumber                String?                 @unique

@@ -1,6 +1,6 @@
 import { ArrowLeft } from 'lucide-react';
 
-import { useAuthForm } from '../hooks';
+import { useAuthForm, useForgotPasswordForm, useResetPasswordForm } from '../hooks';
 
 export function WelcomePage({ onNavigate }) {
   return (
@@ -51,6 +51,9 @@ export function LoginPage({ app, onNavigate }) {
           <div className="mb-6">
             <label className="block text-sm font-semibold text-gray-700 mb-2">Password</label>
             <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" placeholder="Enter password" />
+            <button type="button" onClick={() => onNavigate('forgotPassword')} className="mt-3 text-sm font-semibold text-purple-600 hover:underline">
+              Forgot password?
+            </button>
           </div>
           {errorMessage ? (
             <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</p>
@@ -63,6 +66,112 @@ export function LoginPage({ app, onNavigate }) {
       </div>
     </div>
   );
+}
+
+export function ForgotPasswordPage({ onNavigate }) {
+  const {
+    email,
+    errorMessage,
+    handleSubmit,
+    isSubmitting,
+    setEmail,
+    successMessage
+  } = useForgotPasswordForm();
+
+  return (
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-500 to-purple-600 md:flex md:items-center md:justify-center md:p-6">
+      <div className="min-h-[100dvh] w-full bg-white md:min-h-0 md:max-w-lg md:rounded-3xl md:shadow-2xl">
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-8 pb-8 pt-14 text-white relative md:rounded-t-3xl md:p-8">
+          <button onClick={() => onNavigate('login')} className="absolute left-4 top-4 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="w-20 h-20 mx-auto mb-4 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <span className="text-4xl">🐾</span>
+          </div>
+          <h2 className="text-2xl font-bold text-center">Reset Password</h2>
+        </div>
+        <form className="p-8" onSubmit={handleSubmit}>
+          <p className="mb-6 text-sm leading-6 text-gray-600">
+            Enter your email and we'll send reset instructions if an account exists.
+          </p>
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+            <input type="email" value={email} onChange={(event) => setEmail(event.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none" placeholder="Enter your email" />
+          </div>
+          {successMessage ? (
+            <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{successMessage}</p>
+          ) : null}
+          {errorMessage ? (
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</p>
+          ) : null}
+          <button type="submit" disabled={isSubmitting} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold mb-4 hover:shadow-lg transition-all disabled:opacity-70">
+            {isSubmitting ? 'Sending...' : 'Send Reset Link'}
+          </button>
+          <p className="text-center text-sm text-gray-600">Remembered your password? <span onClick={() => onNavigate('login')} className="text-purple-600 font-semibold cursor-pointer hover:underline">Sign In</span></p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+export function ResetPasswordPage({ onNavigate }) {
+  const token = getPasswordResetTokenFromUrl();
+  const {
+    errorMessage,
+    formData,
+    handleChange,
+    handleSubmit,
+    isSubmitting,
+    successMessage
+  } = useResetPasswordForm({ onNavigate, token });
+
+  return (
+    <div className="min-h-[100dvh] bg-gradient-to-br from-indigo-500 to-purple-600 md:flex md:items-center md:justify-center md:p-6">
+      <div className="min-h-[100dvh] w-full bg-white md:min-h-0 md:max-w-lg md:rounded-3xl md:shadow-2xl">
+        <div className="bg-gradient-to-r from-purple-500 to-indigo-600 px-8 pb-8 pt-14 text-white relative md:rounded-t-3xl md:p-8">
+          <button onClick={() => onNavigate('login')} className="absolute left-4 top-4 w-10 h-10 bg-white bg-opacity-20 rounded-full flex items-center justify-center hover:bg-opacity-30">
+            <ArrowLeft size={20} />
+          </button>
+          <div className="w-20 h-20 mx-auto mb-4 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
+            <span className="text-4xl">🐾</span>
+          </div>
+          <h2 className="text-2xl font-bold text-center">Choose New Password</h2>
+        </div>
+        <form className="p-8" onSubmit={handleSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">New Password</label>
+            <input name="password" type="password" value={formData.password} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Enter new password" />
+            <p className="mt-2 text-xs text-gray-500">Use at least 8 characters.</p>
+          </div>
+          <div className="mb-6">
+            <label className="block text-sm font-semibold text-gray-700 mb-2">Confirm Password</label>
+            <input name="confirmPassword" type="password" value={formData.confirmPassword} onChange={handleChange} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Confirm new password" />
+          </div>
+          {!token ? (
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">Password reset link is missing or invalid.</p>
+          ) : null}
+          {successMessage ? (
+            <p className="mb-4 rounded-xl bg-green-50 px-4 py-3 text-sm text-green-700">{successMessage}</p>
+          ) : null}
+          {errorMessage ? (
+            <p className="mb-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{errorMessage}</p>
+          ) : null}
+          <button type="submit" disabled={isSubmitting || !token || Boolean(successMessage)} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-4 rounded-full font-semibold mb-4 hover:shadow-lg transition-all disabled:opacity-70">
+            {isSubmitting ? 'Saving...' : 'Reset Password'}
+          </button>
+          <p className="text-center text-sm text-gray-600">Back to <span onClick={() => onNavigate('login')} className="text-purple-600 font-semibold cursor-pointer hover:underline">Sign In</span></p>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function getPasswordResetTokenFromUrl() {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  return new URLSearchParams(window.location.search).get('token') || '';
 }
 
 export function SignupPage({ app, onNavigate }) {
